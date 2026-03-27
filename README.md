@@ -62,3 +62,7 @@ OMP_FLAG = -fopenmp
 
 If your machine is neither LeonardoBoost nor magellanus, please modify SYSTYPE and its corresponding dependencies in the Makefile
 
+* [% GPUDirect]
+```
+Keep it commented for safe GPU runs, decomment it for tests with MPICH
+```
