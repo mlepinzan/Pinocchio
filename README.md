@@ -64,5 +64,5 @@ If your machine is neither LeonardoBoost nor magellanus, please modify SYSTYPE a
 
 * [% GPUDirect]
 ```
-Keep it commented for safe GPU runs, decomment it for tests with MPICH
+Keep it commented in parameter file for safe GPU runs, decomment it for tests with MPICH
 ```
