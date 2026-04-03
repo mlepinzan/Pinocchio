@@ -149,7 +149,6 @@ endif
 
 ######################################################
 ####################### GPU flag ####################
-GPU_FLAG = 
 
 ifeq ($(GPU), YES)
 OPTIONS += -DGPU_OMP
@@ -159,7 +158,6 @@ endif
 ifeq ($(FULL_GPU), YES)
 OPTIONS += -DGPU_OMP_FULL
 GPU_FLAG = -gpu=ccnative -target=gpu #-gpu=nomanaged
-GPU_FLAG =
 endif
 
 ifeq ($(NSIGHT), YES)
@@ -200,7 +198,6 @@ ifeq ($(FULL_GPU), YES)
 # OMP_FLAG = -mp=gpu
 endif
 
-OMP_FLAG =
 OMP_FFTW = -lfftw3_omp
 endif # OMP, YES
 
