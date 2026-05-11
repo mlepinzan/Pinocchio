@@ -1,0 +1,171 @@
+# write_mass_maps.context — High-level logic for src/write_mass_maps.c
+
+Purpose: Help an LLM (or a new contributor) quickly understand how the mass-maps module works end-to-end: inputs, algorithm, data flow, parallelism (OpenMP + MPI), I/O, compile-time knobs, and performance considerations. It summarizes the code; it is not code.
+
+## What this file does (MASS_MAPS)
+- Goal: For each adjacent pair of fragmentation outputs (a “segment”), detect when a mass element’s trajectory crosses the past light-cone (PLC), then accumulate one HEALPix map per segment.
+- Pipeline per segment:
+  1) Build candidate periodic replications whose Lagrangian AABB overlaps the segment’s comoving radial shell [chi_prev, chi_curr].
+  2) Optional Lagrangian sub-volume culling: split the local tile into blocks; use padded AABB radial test plus an exact angular test (axis piercing + corner enumeration) to quickly reject block/rep pairs that cannot contribute.
+  3) For remaining block/rep pairs, traverse particles, detect PLC entry H = chi(z) − r sign change between endpoints, linearly interpolate entry position, apply aperture filter, pixelize, and accumulate into the segment’s map.
+  4) Reduce across MPI tasks and write exactly one FITS per segment (rank 0 performs I/O).
+
+## Key dependencies and prerequisites
+- Requires PLC (past light-cone), RECOMPUTE_DISPLACEMENTS, HAVE_CFITSIO at compile time. SNAPSHOT is used by optional filters.
+- Displacements are maintained at previous and current endpoints per segment (products array + LPT fields). Under scale-dependent modes, derivatives are recomputed each segment (fragment.c); under scale-independent ΛCDM, a fast rescaling path applies.
+- HEALPix via chealpix is used for RING pixelization.
+
+## Runtime parameters (from params)
+- params.PLCAperture [deg]: PLC cone aperture; < 180 produces a spherical cap map (Ncap prefix of RING ordering). 180 produces full-sky.
+- params.MassMapNSIDE: HEALPix NSIDE for maps.
+- params.InterPartDist [Mpc]: particle spacing; defines position units (true Mpc) and informs culling pad reporting.
+- params.RunFlag: included in output filenames.
+- Cosmology (sigma8, Hubble100) for variable AABB padding and geometry.
+
+## Compile-time toggles (macros)
+- MASS_MAPS: enable module (this file).
+- PLC: enable PLC logic.
+- RECOMPUTE_DISPLACEMENTS: keep prev/curr fields per segment, used by interpolation helper.
+- HAVE_CFITSIO: enable FITS I/O.
+- SNAPSHOT: products fields used by optional filtering/diagnostics.
+- MASS_MAPS_FILTER_UNCOLLAPSED: include only entries with z_plc > z_acc (requires SNAPSHOT and current zacc in products; handled via distribute_back each segment).
+- MASS_MAPS_MATCH_DIAG: extra prints to reconcile entries with PLC halo catalog.
+- MASS_MAPS_FULLSKY_OUTPUT: also write full-sky IMAGE HDU when aperture < 180 (otherwise only cap BINTABLE is written for caps).
+- MASS_MAPS_BLOCKS, MASS_MAPS_BLOCKS_X/Y/Z: number of Lagrangian blocks per axis for culling (default 8 each). 0 disables culling.
+- MASS_MAPS_VARPAD_FACTOR: variable AABB pad factor; effective pad_phys ≈ FACTOR · (sigma8/0.8)^{1.5} / (1+z) / H0.
+- MASS_MAPS_VARPAD_WARN_FRAC: on last segment, warn if |x(q,z) − q| exceeds pad for more than this fraction.
+- MASS_MAPS_THREAD_ACCUM: use per-thread local maps and merge once per block to reduce atomics; otherwise, accumulate with OpenMP atomics into a shared map.
+- DISP_HISTOGRAM (+ DISP_HIST_*): optional displacement magnitude histogram per endpoint, MPI-reduced and written as ASCII on rank 0.
+- MASS_MAPS_CAP_DIAG: optional cap-boundary diagnostics (max accepted/missed angle, prefix misses). Compiled only when enabled; default off.
+
+## Data model and memory
+- Segments (MassSheets): NMassSheets = outputs.n − 1. Each has bounds in redshift and precomputed comoving distances (chi_prev/curr), angular-diameter distances (da), deltas and inverses, and chi^3 span for potential volumetric weights.
+- Maps: One HEALPix map per segment, stored in a flat array MassMapSegmentMaps of length NMassSheets × NPIX. For cap mode, NPIX = Ncap; for full-sky, NPIX = 12·NSIDE^2.
+- Pixelization basis: PLC axis is cached; a local orthonormal triad (e1,e2,e3) centered at PLC center is used to compute spherical angles and ring indices.
+- Temporary: root-only MassMapReduceBuffer for MPI reductions, per-thread LocalMap when MASS_MAPS_THREAD_ACCUM, per-block caches of prev/curr positions when culling is enabled.
+
+## Orchestrator (mass_maps_process_segment)
+Inputs and preconditions:
+- segment_index in 1..NMassSheets (map index s_map = segment_index − 1). The first segment (index 0) has no crossings and is skipped.
+- On entry, ensure products contains current zacc and group_ID if filtering/diagnostics require them; this is done by distribute_back each segment when MASS_MAPS_FILTER_UNCOLLAPSED or matching diagnostics are enabled.
+
+Steps:
+1) Lazy allocate HEALPix maps (mass_maps_init_healpix_maps) using params.MassMapNSIDE, compute Ncap for cap mode, and zero maps if first use.
+2) Candidate replications (mass_maps_select_segment_replications):
+   - For each periodic replication id r, compute replication chi bounds [rmin, rmax] once (mass_maps_replication_chi_bounds) and select those overlapping [chi_prev, chi_curr]. This is a coarse radial prefilter.
+3) Precompute replication shifts RepShift[r] = (ii,jj,kk)·Box in phys Mpc for all selected r once.
+4) Optional Lagrangian culling path (enabled when MASS_MAPS_BLOCKS_* > 0):
+   - Split the local FFT tile (global lattice coords for this rank) into nbx×nby×nbz blocks.
+   - Compute unified AABB pad aabb_pad_phys for this segment using MASS_MAPS_VARPAD_FACTOR, sigma8, redshift, and H0. Report pad in Mpc, Mpc/h, and cells.
+   - For each block, construct its padded Lagrangian AABB in phys units and cull replications using two tests:
+     • Radial shell test: via aabb_distance_bounds_to_point() against the segment shell [chi_prev, chi_curr]. If [dmin,dmax] ∩ [chi_prev,chi_curr] = ∅, reject the block for all reps.
+     • Exact angular test: project AABB onto the PLC transverse basis (ex, ey) and check axis piercing (x span contains 0 and y span contains 0). If pierced, early accept (block cannot be wholly outside). Otherwise, enumerate the 8 corners relative to the PLC center, compute cos(theta) at each, and reject only if the maximum corner cosine ≤ cos(aperture).
+   - If a block survives for at least one replication, build per-block caches of endpoint positions in phys Mpc: for each particle, load pos_data from products (mass_maps_set_point_from_products_global), then compute absolute prev/curr Eulerian positions with mass_maps_compute_prev_curr_positions (q + LPT displacements assembled to compiled order). Optionally count |Pcurr − Pprev| > aabb_pad_phys diagnostics on last segment.
+   - For each passing replication r of this block: loop particles using cached positions, add RepShift[r], test PLC entry via mass_maps_crossing_from_shifted_positions (inside→outside crossing; linear interpolation alpha = H_prev / (H_prev − H_curr) with epsilon guard), check entry against redshift bounds and aperture (mass_maps_entry_inside_aperture), optional uncollapsed-only filter (z_plc > zacc), compute pixel (mass_maps_compute_pixel_from_pos), and accumulate weight (default 1.0) into the segment map.
+   - Accumulation strategy:
+     • Default: OpenMP atomic updates directly to the shared segment map.
+     • MASS_MAPS_THREAD_ACCUM: per-thread LocalMap used within the block; merge into the shared map once per block (reduces atomic contention).
+5) Non-culling path: iterate over selected replications first, then all local particles; build pos_data on the fly and compute prev/curr, crossing, aperture, filter, pixelize, and accumulate as above (no per-block caches).
+6) MPI reductions and output:
+  - Reduce per-rep entry counters, diagnostics, and the segment map to rank 0. Root writes pinocchio.<RunFlag>.massmap.seg%03d.fits via mass_maps_write_segment_map and prints map stats at VDBG level. The FITS includes PLC axis, APERTURE, NSIDE, ORDERING=RING, FIRSTPIX/LASTPIX. For cap maps: a BINTABLE with columns (PIXEL, TEMPERATURE) and INDXSCHM=EXPLICIT; full-sky maps include both primary IMAGE and a HEALPIX BINTABLE extension for compatibility.
+   - If MASS_MAPS_FILTER_UNCOLLAPSED is active, write FILTER metadata into FITS (mass_maps_write_filter_keywords): FILTER='ZPLC>ZACC', ZF_CONS/ZF_EXCL/ZF_INCL/ZF_FEXCL, ZPLC_MIN/MAX, ZACC_MIN/MAX, ZPLC_OOS.
+7) At the end of the last segment, free temporary buffers; maps remain allocated until explicit free.
+
+Edge conditions and guards:
+- First segment (index 0): no crossings (no prev); function returns early.
+- Small denominator for alpha (H_prev − H_curr): guarded by epsilon; treat as no crossing.
+- If computed Ncap=0 for given NSIDE and aperture, maps are disabled with a warning.
+- Out-of-cap pixel indices are guarded; debug prints if any OOB occur.
+- Angular culling: early-accept blocks whose transverse projection spans the PLC axis (axis piercing). Otherwise, apply corner enumeration test as above.
+- Optional z_plc bounds check: ensure interpolated z_plc lies within [z_prev,z_curr] with tolerance; otherwise count as out-of-segment.
+
+## Core helpers (by role)
+Geometry and pixelization:
+- aabb_distance_bounds_to_point(minv,maxv,c) → (dmin,dmax): tight Euclidean distance bounds from PLC center to an AABB; used for radial shell culling.
+- mass_maps_entry_inside_aperture(pos): quick check against PLC cone aperture.
+- mass_maps_compute_pixel_from_pos(pos,nside,ipix*): compute RING pixel index for absolute position using cached PLC basis; used for both full and cap maps (cap uses index prefix).
+
+PLC crossing:
+- mass_maps_crossing_from_shifted_positions(Pprev,Pcurr,chi_prev,chi_curr,entry_pos*): detect inside→outside radial crossing H=chi−r with linear interpolation; return entry position if crossing.
+
+Products access and positions:
+- mass_maps_set_point_from_products_global(ig,jg,kg,F, pos_data*): fill pos_data with q (global lattice), and LPT displacement components for prev/curr endpoints per compiled order; F=(1+z_curr) helps set weights/scales consistently.
+- mass_maps_compute_prev_curr_positions(pos_data*, Pprev[3], Pcurr[3], lpt_order): assemble absolute positions at prev/curr as q + Σ LPT_terms (prev and curr separately); positions are in phys Mpc.
+- mass_maps_get_zacc_global(ig,jg,kg): read products[idx].zacc for filters; mass_maps_get_group_id_global similarly returns group_ID.
+
+Segments and maps:
+- mass_maps_init_sheets(): build segment array (MassSheets) from outputs; precompute chi/da spans and helpers.
+- mass_maps_init_healpix_maps(nside): allocate MassMapSegmentMaps (flat buffer), compute NPIX (full) or Ncap (cap), zero maps; log pixel along axis.
+- mass_maps_zero_maps(), mass_maps_free_maps(): reset and cleanup.
+- mass_maps_write_segment_map(s): root-only; write FITS per segment with HEALPix metadata. Full-sky: primary IMAGE HDU plus secondary BINTABLE (EXTNAME='HEALPIX') with columns PIXEL,TEMPERATURE. Cap: single BINTABLE with PIXEL,TEMPERATURE (explicit indexing). Adds PLC axis vector, APERTURE, NSIDE, ORDERING, FIRSTPIX,LASTPIX; optional FILTER keywords via mass_maps_write_filter_keywords().
+- mass_maps_write_sheet_table(): write pinocchio.<RunFlag>.sheets.out (id,z_lo,z_hi,chi_lo,chi_hi,da_lo,da_hi, etc.) for reproducibility.
+
+Replication selection and culling:
+- mass_maps_replication_chi_bounds(rep_id, rmin*, rmax*): compute comoving distance bounds for a periodic replication box w.r.t. PLC center (phys units). Used to build the candidate list per segment.
+- mass_maps_select_segment_replications(segment_index): coarse radial prefilter for replications: keep rep if its [rmin,rmax] overlaps [chi_prev,chi_curr]. Angular/aperture culling is deferred to block-level tests for tighter bounds.
+
+Optional diagnostics (compile-time):
+- DISP_HISTOGRAM path: per-endpoint displacement magnitude histograms across the local tile with OpenMP reduction; MPI-reduced and written by root to pinocchio.<z>.<RunFlag>.disp_hist.out with VARPAD context in the header (pad in Mpc, Mpc/h, and cells).
+
+## Parallelism model
+MPI (distributed memory):
+- Domain decomposition is inherited from the FFT/products grid; each rank operates on its local FFT tile only. Most of the work is embarrassingly parallel across ranks. For each segment:
+  - Each rank computes its local contributions (candidates, traversals, map updates).
+  - Per-rep counters, diagnostics, and the segment map buffer are reduced across ranks to root (rank 0).
+  - Only rank 0 writes the FITS outputs and the sheets table; others perform no I/O.
+
+OpenMP (shared memory):
+- Used in multiple places:
+  - Displacement histogram (if enabled): collapse(3) over local tile, reduction over counters.
+  - Culling-enabled path: parallel for collapse(3) over block-grid with dynamic schedule to balance visited blocks. Within each block, optional per-thread LocalMap reduces atomics.
+  - Non-culling path: parallelized loops over lattice indices and replications with atomic updates for shared counters and map cells (or local-map merges within critical sections when configured).
+- Thread-safety:
+  - Map updates: either OpenMP atomics on the shared segment map, or per-thread buffers merged once per block (MASS_MAPS_THREAD_ACCUM) to reduce contention.
+  - Small scalar counters use OpenMP atomics; infrequent merges use critical sections.
+
+## I/O outputs and formats
+ - Per-segment FITS: pinocchio.<RunFlag>.massmap.seg%03d.fits (rank 0 only).
+  - Full-sky mode (aperture=180): dual format for compatibility:
+    • Primary IMAGE HDU: array length NPIX=12·NSIDE^2 (RING ordering implied).
+    • Secondary BINTABLE (EXTNAME='HEALPIX'): columns PIXEL (0..NPIX-1, int32) and TEMPERATURE (double). INDXSCHM=EXPLICIT. Contains same metadata as IMAGE.
+  - Cap mode (aperture<180): single BINTABLE (EXTNAME='HEALPIX') with columns PIXEL (0..Ncap−1) and TEMPERATURE (double). INDXSCHM=EXPLICIT. Metadata: PIXTYPE=HEALPIX, ORDERING=RING, NSIDE, FIRSTPIX, LASTPIX, APERTURE, AXISV1/2/3.
+  - Optional FILTER keywords when MASS_MAPS_FILTER_UNCOLLAPSED is active: FILTER='ZPLC>ZACC', ZF_CONS, ZF_EXCL, ZF_INCL, ZF_FEXCL, ZPLC_MIN/MAX, ZACC_MIN/MAX, ZPLC_OOS; a HISTORY line summarizes counts.
+- Sheets table: pinocchio.<RunFlag>.sheets.out (CSV-like ASCII, reproducibility of segment geometry).
+- Optional displacement histogram files: pinocchio.<z>.<RunFlag>.disp_hist.out (ASCII; root-only; contains VARPAD context and grid provenance).
+
+## Optimization strategy and rationale
+- Replication coarse prefilter: eliminate whole periodic images that cannot intersect the segment shell.
+- Lagrangian block culling with variable AABB pad:
+  - Early reject blocks using tight radial bounds [dmin,dmax] vs [chi_prev,chi_curr].
+  - Exact angular culling (axis piercing + corner enumeration) to skip blocks entirely outside the aperture without false negatives near large apertures.
+  - Variable pad scales with sigma8 and redshift; units converted to phys Mpc to match internal position units. On the last segment, collect stats to validate pad adequacy (warn if many particles exceed pad).
+- Per-block position cache: reuse prev/curr positions across multiple replications, avoiding recomputation.
+- Precompute replication shifts once per segment for all candidates.
+- OpenMP strategy: atomics are acceptable for sparse map updates; when contention rises, MASS_MAPS_THREAD_ACCUM trades a bit of memory for fewer atomics by merging once per block.
+- Cap representation as RING prefix avoids per-pixel inclusion tests; pixel index bounds-checks are O(1).
+
+## Contracts and error modes (LLM hints)
+Inputs:
+- Segment index in [1..NMassSheets]; products array must contain prev/curr LPT displacements; PLC geometry initialized; params set; MPI initialized.
+Outputs:
+- One FITS per processed segment on rank 0; optional ASCII sheets table and histograms.
+Failure modes:
+- Missing prerequisites (PLC, RECOMPUTE_DISPLACEMENTS, HAVE_CFITSIO) → compile-time error.
+- Invalid NSIDE or aperture producing Ncap=0 → map path disabled with warning.
+- CFITSIO errors → reported to stderr; function returns non-zero when applicable.
+- Crossing interpolation degeneracy (tiny denominator) → no crossing reported for that particle.
+
+## Quick symbol index (where to look)
+- Orchestrator: mass_maps_process_segment
+- HEALPix maps: mass_maps_init_healpix_maps, mass_maps_write_segment_map, mass_maps_zero_maps, mass_maps_free_maps
+- Segments: mass_maps_init_sheets, mass_maps_write_sheet_table
+- Replication selection: mass_maps_replication_chi_bounds, mass_maps_select_segment_replications
+- Culling helpers: aabb_distance_bounds_to_point
+- Products/positions: mass_maps_set_point_from_products_global, mass_maps_compute_prev_curr_positions
+- Crossing/pixelize/accumulate: mass_maps_crossing_from_shifted_positions, mass_maps_compute_pixel_from_pos, mass_maps_accumulate_entry_pos
+- Filters/diagnostics: mass_maps_get_zacc_global, mass_maps_get_group_id_global, mass_maps_write_filter_keywords, DISP_HISTOGRAM helpers
+
+## Notes for future improvements
+- Optional hybrid: switch to per-replication parallelism when many reps pass and few blocks do (or vice-versa).
+- Experiment with per-thread compacted lists of changed pixels for faster merges.
+- Consider storing reduced precision map deltas per thread to increase cache locality before merge.
