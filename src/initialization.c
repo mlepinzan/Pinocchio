@@ -15,12 +15,10 @@
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation; either version 2 of the License, or
  (at your option) any later version.
-
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
-
  You should have received a copy of the GNU General Public License
  along with this program; if not, write to the Free Software
  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -61,12 +59,66 @@ int set_scaledep_GM(void);
 unsigned int gcd(unsigned int, unsigned int);
 int set_fft_decomposition(void);
 
+
+#if defined(GPU_OMP) || defined(GPU_OMP_FULL)
+int initialization_gpu_omp()
+{
+  // create a subgroup of processes running on the same node
+  MPI_Comm host_comm = MPI_COMM_NULL;
+  MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0,
+                      MPI_INFO_NULL, &host_comm);
+
+  int host_rank = MPI_PROC_NULL, host_ntasks = -1;
+  // get the rank withing the subgroup
+  MPI_Comm_rank(host_comm, &host_rank);
+  MPI_Comm_size(host_comm, &host_ntasks);
+
+  // get the number of available accelerators
+  const int numdev = omp_get_num_devices();
+
+  /* sync all MPI processes */
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  if (numdev <= 0)
+    {
+      if (!host_rank)
+  	{
+  	  // get the hostname
+  	  char hostname[MPI_MAX_PROCESSOR_NAME];
+  	  int resultlen = -1;
+  	  MPI_Get_processor_name(hostname, &resultlen);
+	  
+  	  printf("\n\t Hostname: %s NO GPUs available... aborting...\n\n", hostname);
+  	  fflush(stdout);
+  	}
+      
+      return 1;      
+    }
+
+  /* set the device number: one-to-one correspondence between MPI process and accelerator */
+  hostID = omp_get_initial_device();
+  //devID  = (host_rank % numdev);
+  devID  = (omp_get_num_devices() == 1 ? 0 : host_rank % numdev);
+
+  /* free the MPI subgroup */
+  MPI_Comm_free(&host_comm);
+
+  /* init the cputime for the GPU */
+  gputime.computation.collapse_times     = 0.0;
+  gputime.memory_transfer.collapse_times = 0.0;
+  
+  return 0;
+}
+#endif // GPU_OMP
+
 int initialization()
 {
 
   /* timing */
-  cputime.init = MPI_Wtime();
+  cputime.init=MPI_Wtime();
 
+  cputime.coll = 0;
+  
   /* this is for gsl integration */
   workspace = gsl_integration_workspace_alloc(NWINT);
   /* this is the initialization of the random number generator */
@@ -104,7 +156,6 @@ int initialization()
   ASSIGN_WTIME(partial, set_plc);
 
   /* computes the number of sub-boxes for fragmentation */
-
   SET_WTIME;
   if (set_subboxes())
     return 1;
@@ -170,50 +221,60 @@ int initialization()
   return 0;
 }
 
+
 int initialize_fft(void)
 {
 
-#ifdef USE_FFT_THREADS
-  // if ( internal.nthreads_fft < 0 )
+ #if defined(_OPENMP) && !defined(GPU_OMP_FULL)
+  //if ( internal.nthreads_fft < 0 )
   internal.nthreads_fft = internal.nthreads_omp;
-  if (internal.nthreads_fft > 1)
-    dprintf(VMSG, 0, "Using %d threads for FFTs\n", internal.nthreads_fft);
-#endif
-
-  /* Initialize pfft */
-  pfft_init();
-
-  /* Inititalize fftw */
-#ifdef USE_FFT_THREADS
+  if ( internal.nthreads_fft > 1 )
+    dprintf(VMSG, 0, "Using %d threads for FFTs\n", internal.nthreads_fft );
   fftw_init_threads();
-#endif
-  fftw_mpi_init();
+ #endif
+  
+   /* Initialize heffte and its options */
+  int heffte_err; // Check that heffte is working correctly!!!
+  heffte_err = heffte_set_default_options(BACKEND, &options_fft);
+  if (heffte_err != Heffte_SUCCESS)
+    {
+      printf("Heffte error in default options %d", heffte_err);
+      return 1;
+    }
 
-  if (set_fft_decomposition())
+  /* Set MPI-GPU DIRECT FROM PARAMETER_FILE */
+ #if defined(GPU_OMP_FULL)
+  options_fft.use_gpu_aware = params.use_gpu_direct;
+ #endif
+
+  /*
+  if(set_fft_decomposition())
     return 1;
-
+  
+  
   if (!ThisTask)
     dprintf(VMSG, ThisTask, "cube subdivision [%d dim]: %d x %d x %d = %d processes\n",
-            internal.tasks_subdivision_dim,
-            internal.tasks_subdivision_3D[0],
-            internal.tasks_subdivision_3D[1],
-            internal.tasks_subdivision_3D[2],
-            internal.tasks_subdivision_3D[0] *
-                internal.tasks_subdivision_3D[1] *
-                internal.tasks_subdivision_3D[2]);
+	    internal.tasks_subdivision_dim,
+	    internal.tasks_subdivision_3D[0],
+	    internal.tasks_subdivision_3D[1],
+	    internal.tasks_subdivision_3D[2],
+	    internal.tasks_subdivision_3D[0] *
+	    internal.tasks_subdivision_3D[1] *
+	    internal.tasks_subdivision_3D[2]);
 
-  if (pfft_create_procmesh(internal.tasks_subdivision_dim, MPI_COMM_WORLD, internal.tasks_subdivision_3D, &FFT_Comm))
-  {
-    int all = 1;
-    for (int iii = 0; iii < internal.tasks_subdivision_dim; iii++)
-      all *= internal.tasks_subdivision_3D[iii];
-
-    pfft_fprintf(MPI_COMM_WORLD, stderr, "Error while creating communicator and mesh with %d processes\n", all);
-    return 1;
-  }
-
+    if ( pfft_create_procmesh(internal.tasks_subdivision_dim, MPI_COMM_WORLD, internal.tasks_subdivision_3D, &FFT_Comm) )
+    {
+      int all = 1;
+      for(int iii = 0; iii < internal.tasks_subdivision_dim; iii++)
+  	all *= internal.tasks_subdivision_3D[iii];
+      
+      pfft_fprintf(MPI_COMM_WORLD, stderr, "Error while creating communicator and mesh with %d processes\n", all);
+      return 1;
+    }
+  */
   return 0;
 }
+
 
 int set_parameters()
 {
@@ -396,45 +457,58 @@ int set_smoothing()
   int ismooth;
   double var_min, var_max, rmin;
 
-  var_min = pow(1.686 / NSIGMA / GrowingMode(outputs.zlast, params.k_for_GM), 2.0);
-  rmin = params.InterPartDist / 6.;
-  var_max = MassVariance(rmin);
-  Smoothing.Nsmooth = (log10(var_max) - log10(var_min)) / STEP_VAR + 2;
+  var_min    = pow(1.686/NSIGMA / GrowingMode(outputs.zlast,params.k_for_GM),2.0);
+  rmin       = params.InterPartDist/6.;
+  var_max    = MassVariance(rmin);
+  Smoothing.Nsmooth = (log10(var_max)-log10(var_min))/STEP_VAR+2;
 
-  if (Smoothing.Nsmooth <= 0)
-  {
-    if (!ThisTask)
-      dprintf(VERR, 0, "I am afraid that nothing is predicted to collapse in this configuration.\nI will work with no smoothing\n");
-    Smoothing.Nsmooth = 1;
-  }
+  if (Smoothing.Nsmooth<=0)
+    {
+      if (!ThisTask)
+	dprintf(VERR, 0, "I am afraid that nothing is predicted to collapse in this configuration.\nI will work with no smoothing\n");
+      Smoothing.Nsmooth=1;
+    }
 
   if (!ThisTask)
-  {
-    printf("\nSMOOTHING RADII\n");
-    printf("Min variance: %f12.6, max variance: %f12.6, number of smoothing radii: %d\n",
-           var_min, var_max, Smoothing.Nsmooth);
-  }
-  Smoothing.Radius = (double *)malloc(Smoothing.Nsmooth * sizeof(double));
-  Smoothing.Variance = (double *)malloc(Smoothing.Nsmooth * sizeof(double));
-  Smoothing.TrueVariance = (double *)malloc(Smoothing.Nsmooth * sizeof(double));
-  if (Smoothing.Radius == 0x0 || Smoothing.Variance == 0x0 || Smoothing.TrueVariance == 0x0)
-  {
-    printf("ERROR on task %d: allocation of Smoothing failed\n", ThisTask);
-    fflush(stdout);
-    return 1;
-  }
+    {
+      printf("\nSMOOTHING RADII\n");
+      printf("Min variance: %f12.6, max variance: %f12.6, number of smoothing radii: %d\n",
+	     var_min,var_max,Smoothing.Nsmooth);
+    }
+  Smoothing.Radius      =(double*)malloc(Smoothing.Nsmooth * sizeof(double));
+  Smoothing.Variance    =(double*)malloc(Smoothing.Nsmooth * sizeof(double));
+  Smoothing.TrueVariance=(double*)malloc(Smoothing.Nsmooth * sizeof(double));
+  if (Smoothing.Radius==0x0 || Smoothing.Variance==0x0 || Smoothing.TrueVariance==0x0)
+    {
+      printf("ERROR on task %d: allocation of Smoothing failed\n",ThisTask);
+      fflush(stdout);
+      return 1;
+    }
+  
+  #if defined(GPU_OMP_FULL)
+  #pragma omp target enter data map(alloc: Smoothing.Radius[0:Smoothing.Nsmooth],  \
+                                           Smoothing.Variance[0:Smoothing.Nsmooth],\
+                                           Smoothing.TrueVariance[0:Smoothing.Nsmooth]) device(devID)
+  #endif //end GPU_OMP_FULL
 
-  for (ismooth = 0; ismooth < Smoothing.Nsmooth - 1; ismooth++)
-  {
-    Smoothing.Variance[ismooth] = pow(10., log10(var_min) + STEP_VAR * ismooth);
-    Smoothing.Radius[ismooth] = Radius(Smoothing.Variance[ismooth]);
-  }
-  Smoothing.Radius[ismooth] = 0.0;
+  for (ismooth=0; ismooth<Smoothing.Nsmooth-1; ismooth++)
+    {
+      Smoothing.Variance[ismooth] = pow(10., log10(var_min)+STEP_VAR*ismooth);
+      Smoothing.Radius[ismooth]   = Radius(Smoothing.Variance[ismooth]);
+    }
+  Smoothing.Radius[ismooth]   = 0.0;
   Smoothing.Variance[ismooth] = var_max;
 
+  #if defined(GPU_OMP_FULL)
+  /* Updating Smoothing.Variance values on the GPU*/
+  #pragma omp target update to(Smoothing.Radius[0:Smoothing.Nsmooth],   \
+                               Smoothing.Variance[0:Smoothing.Nsmooth], \
+                               Smoothing.TrueVariance[0:Smoothing.Nsmooth]) device(devID)
+  #endif // GPU_OMP_FULL NOTE: The Smoothing.Variance is needed for calculating the collapse time in the tabulated fashion
+
   if (!ThisTask)
-    for (ismooth = 0; ismooth < Smoothing.Nsmooth; ismooth++)
-      printf("           %2d)  Radius=%10f, Variance=%10f\n", ismooth + 1, Smoothing.Radius[ismooth], Smoothing.Variance[ismooth]);
+    for (ismooth=0; ismooth<Smoothing.Nsmooth; ismooth++)
+      printf("           %2d)  Radius=%10f, Variance=%10f\n",ismooth+1,Smoothing.Radius[ismooth],Smoothing.Variance[ismooth]);
 
   fflush(stdout);
   MPI_Barrier(MPI_COMM_WORLD);
@@ -484,39 +558,39 @@ int set_grids()
 
   int igrid, dim;
 
-  Ngrids = 1;
+  Ngrids=1;
 
-  MyGrids = (grid_data *)malloc(Ngrids * sizeof(grid_data));
+  MyGrids=(grid_data*)malloc(Ngrids * sizeof(grid_data));
 
-  for (dim = 0; dim < 3; dim++)
+  for (dim=0; dim<3; dim++)
     MyGrids[0].GSglobal[dim] = params.GridSize[dim];
-
-  MyGrids[0].Ntotal = (unsigned long long)MyGrids[0].GSglobal[_x_] *
-                      (unsigned long long)MyGrids[0].GSglobal[_y_] *
-                      (unsigned long long)MyGrids[0].GSglobal[_z_];
+  
+  MyGrids[0].Ntotal = (unsigned long long)MyGrids[0].GSglobal[_x_] * 
+    (unsigned long long)MyGrids[0].GSglobal[_y_] * 
+    (unsigned long long)MyGrids[0].GSglobal[_z_];
 
   MyGrids[0].BoxSize = params.BoxSize_htrue;
-  MyGrids[0].lower_k_cutoff = 0.;
-  MyGrids[0].upper_k_cutoff = NYQUIST * PI;
+  MyGrids[0].lower_k_cutoff=0.;
+  MyGrids[0].upper_k_cutoff=NYQUIST * PI;
 
   /* allocates pointers */
-  cvector_fft = (pfft_complex **)malloc(Ngrids * sizeof(fftw_complex *));
-  rvector_fft = (double **)malloc(Ngrids * sizeof(double *));
+  cvector_fft=(struct my_double_complex**)malloc(Ngrids * sizeof(struct my_double_complex*));
+  rvector_fft=(double**)malloc(Ngrids * sizeof(double*));
 
-  kdensity = (double **)malloc(Ngrids * sizeof(double *));
-  density = (double **)malloc(Ngrids * sizeof(double *));
-  first_derivatives = (double ***)malloc(Ngrids * sizeof(double **));
-  second_derivatives = (double ***)malloc(Ngrids * sizeof(double **));
+  kdensity=(double**)malloc(Ngrids * sizeof(double*));
+  density=(double**)malloc(Ngrids * sizeof(double*));
+  first_derivatives=(double***)malloc(Ngrids * sizeof(double**));
+  /* second_derivatives=(double***)malloc(Ngrids * sizeof(double**)); */
 
-  for (igrid = 0; igrid < Ngrids; igrid++)
-  {
-    first_derivatives[igrid] = (double **)malloc(3 * sizeof(double *));
-    second_derivatives[igrid] = (double **)malloc(6 * sizeof(double *));
-  }
+  for (igrid=0; igrid<Ngrids; igrid++)
+    {
+      first_derivatives[igrid]=(double**)malloc(3 * sizeof(double*));
+      /* second_derivatives[igrid]=(double**)malloc(6 * sizeof(double*)); */
+    }
   /* moved to GenIC */
   /* seedtable=(unsigned int**)malloc(Ngrids * sizeof(unsigned int*)); */
-
-  for (igrid = 0; igrid < Ngrids; igrid++)
+ 
+  for (igrid=0; igrid<Ngrids; igrid++)
     if (set_one_grid(igrid))
       return 1;
 

@@ -404,7 +404,6 @@ int GenIC_large(int ThisGrid)
 	      
 	      kdensity[ThisGrid][addr    ] =  delta * cos(phase);
 	      kdensity[ThisGrid][addr + 1] =  sign * delta * sin(phase);
-
 	    }
 
 	}

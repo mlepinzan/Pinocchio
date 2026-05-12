@@ -15,20 +15,22 @@
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation; either version 2 of the License, or
  (at your option) any later version.
-
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
-
  You should have received a copy of the GNU General Public License
  along with this program; if not, write to the Free Software
  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
+
+#pragma once
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <limits.h>
 #include <mpi.h>
 #include <string.h>
 #include <time.h>
@@ -40,12 +42,61 @@
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_odeiv2.h>
 #include <gsl/gsl_spline.h>
-#include <gsl/gsl_spline2d.h>
-#include <fftw3-mpi.h>
-#include <pfft.h>
+//#include <pfft.h> //Decide whether to keep it or to get rid of it
+#include <assert.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+/* Include HeFFTe */
+//############################
+#include <heffte.h>
+//############################
+
 #ifdef _OPENMP
-#include <omp.h>
+   #include <omp.h>
+#else
+   #define omp_get_thread_num()  0
+   #define omp_get_num_threads() 1
+#endif // _OPENMP
+#ifdef USE_GPERFTOOLS
+#include <gperftools/profiler.h>
 #endif
+
+/* If you want to activate multi-threading for HeFFTe */
+#if defined(_OPENMP) && !defined(GPU_OMP_FULL)
+#include <fftw3.h>
+#endif
+
+
+/* Choose your backend, modify it if you're using non-NVIDIA GPUs */
+#if defined GPU_OMP_FULL
+#define BACKEND Heffte_BACKEND_CUFFT
+#else
+#define BACKEND Heffte_BACKEND_FFTW
+#endif
+
+#ifdef GPU_OMP
+#define ALIGN_GPU     256
+
+#if defined(GPU_OMP) && defined(GPU_OMP_FULL)
+#error "GPU_OMP and GPU_OMP_FULL are mutually exclusive"
+#endif
+
+/* for code portability (NVIDIA / AMD) is better do not */
+/* hard code the block size                             */
+/* #define GPU_OMP_BLOCK 32
+// sanity check
+#if GPU_OMP_BLOCK > 1024
+#error "GPU_OMP_BLOCK cannot be larger than 1024"
+#endif */
+
+#endif // GPU_OMP 
+#if defined(CUSTOM_INTERPOLATION) || defined(GPU_OMP) || defined(GPU_OMP_FULL)
+#include "cubic_spline_interpolation.h"
+#endif // defined(CUSTOM_INTERPOLATION) || defined(GPU_OMP) || defined(FULL_GPU_OMP)
+
+// header for PMT library
+#include "energy/energy_pmt.h"
 
 /* this library is used to vectorize the computation of collapse times */
 /* #if !(defined(__aarch64__) || defined(__arm__)) */
@@ -54,20 +105,20 @@
 
 /* Defines */
 #define NYQUIST 1.
-#define PI 3.14159265358979323846
+#define PI      3.14159265358979323846 
 #define LBLENGTH 400
-#define SBLENGTH 100
+#define SBLENGTH 512
 #define GBYTE 1073741824.0
 #define MBYTE 1048576.0
 #define alloc_verbose 0
 #define MAXOUTPUTS 100
 #define SPEEDOFLIGHT ((double)299792.458) /* km/s */
 #define GRAVITY ((double)4.30200e-9)      /*  (M_sun^-1 (km/s)^2 Mpc)  */
-#define NBINS 210                         /* number of time bins in cosmological quantities */
+#define NBINS 210     /* number of time bins in cosmological quantities */
 #define FRAGFIELDS 6
 
 #define NSIGMA ((double)6.0)
-#define STEP_VAR ((double)0.3) // 0.2)   /* this sets the spacing for smoothing radii */
+#define STEP_VAR ((double)0.3)  //0.2)   /* this sets the spacing for smoothing radii */
 
 #define NV 6
 #define FILAMENT 1
@@ -163,41 +214,94 @@ extern int ThisTask, NTasks;
 /* extern int pfft_flags_c2r, pfft_flags_r2c; */
 extern MPI_Comm FFT_Comm;
 
+#if defined(GPU_OMP)
+
+/* memory in the CubicSpline */
+struct gpu_memory_spline
+{
+  size_t offset;
+  size_t x;
+  size_t y;
+  size_t d2y_data;
+  size_t coeff_a;
+  size_t coeff_b;
+  size_t coeff_c;
+  size_t coeff_d;
+  size_t count;
+};
+
+struct gpu_memory_products
+{
+  size_t offset;
+  size_t Rmax;
+  size_t Fmax;
+  size_t count;
+};
+
+struct gpu_memory_second_derivatives
+{
+  size_t offset;
+  size_t tensor[6];
+  size_t count;
+};
+  
 typedef struct
 {
-  int tasks_subdivision_dim;           /* 1, 2 or 3 to divide in slabs, pencils and volumes */
-  int tasks_subdivision_3D[4];         /* ??? */
-  int constrain_task_decomposition[3]; /* constraints on the number of subdivisions for each dimension */
-  int verbose_level;                   /* for dprintf */
-  int mimic_original_seedtable;        /* logical, set to 1 to reproduce exactly GenIC */
-  // int dump_vectors;                     /* logical, dump vectors to files */
-  int dump_seedplane; /* logical, dump seedplane to files */
-  int dump_kdensity;  /* logical, dump Fourier-space density to files */
-  int large_plane;    /* select the new generation of ICs */
-  int nthreads_omp;   /* number of OMP threads */
-  int nthreads_fft;   /* number of FFT threads */
+                                                                  /* one-to-one correspondence between MPI processes        */
+                                                                  /* and GPUs is assumed                                    */
+  size_t memory;                                                  /* total GPU required memory                              */
+  char *gpu_main_memory;                                          /* pointer to the total memory allocated on the GPU       */
+  struct gpu_memory_spline memory_spline;                         /* memory in bytes required by the GPU spline             */
+  struct gpu_memory_products memory_products;                     /* memory in bytes required by the GPU products           */
+  struct gpu_memory_second_derivatives memory_second_derivatives; /* memory in bytes required by the GPU second derivatives */
+} gpuOMP;
+
+extern int hostID; /* host's (MPI process) ID                 */
+extern int devID;  /* device's ID assigned to the MPI process */
+
+#endif // GPU_OMP 
+
+typedef struct
+{
+  int tasks_subdivision_dim;            /* 1, 2 or 3 to divide in slabs, pencils and volumes */
+  int tasks_subdivision_3D[4];          /* ??? */
+  int constrain_task_decomposition[3];  /* constraints on the number of subdivisions for each dimension */
+  int verbose_level;                    /* for dprintf */
+  int mimic_original_seedtable;         /* logical, set to 1 to reproduce exactly GenIC */
+  //int dump_vectors;                     /* logical, dump vectors to files */
+  int dump_seedplane;                   /* logical, dump seedplane to files */
+  int dump_kdensity;                    /* logical, dump Fourier-space density to files */
+  int large_plane;                      /* select the new generation of ICs */
+  int nthreads_omp;                     /* number of OMP threads */
+  int nthreads_fft;                     /* number of FFT threads */
+#ifdef GPU_OMP
+  gpuOMP device;                        /* structure to handle the GPU */
+#endif // GPU_OMP
 } internal_data;
 extern internal_data internal;
 
 typedef unsigned int uint;
-// typedef unsigned long long int UL;  // mi pare non ci sia
+//typedef unsigned long long int UL;  // mi pare non ci sia
+
 
 #ifdef DOUBLE_PRECISION_PRODUCTS
 #define MPI_PRODFLOAT MPI_DOUBLE
 typedef double PRODFLOAT;
+#define EPSILON DBL_EPSILON
 #else
 #define MPI_PRODFLOAT MPI_FLOAT
 typedef float PRODFLOAT;
+#define EPSILON FLT_EPSILON
 #endif
 
-typedef struct // RIALLINEARE?
+typedef struct  // RIALLINEARE?
 {
   int Rmax;
-  PRODFLOAT Fmax, Vel[3];
+  PRODFLOAT Fmax,Vel[3];
 #ifdef TWO_LPT
   PRODFLOAT Vel_2LPT[3];
 #ifdef THREE_LPT
-  PRODFLOAT Vel_3LPT_1[3], Vel_3LPT_2[3];
+  PRODFLOAT Vel_3LPT_1[3],Vel_3LPT_2[3];
 #endif
 #endif
 
@@ -211,12 +315,37 @@ typedef struct // RIALLINEARE?
 #ifdef TWO_LPT
   PRODFLOAT Vel_2LPT_prev[3];
 #ifdef THREE_LPT
-  PRODFLOAT Vel_3LPT_1_prev[3], Vel_3LPT_2_prev[3];
+  PRODFLOAT Vel_3LPT_1_prev[3],Vel_3LPT_2_prev[3];
 #endif
 #endif
 #endif
 
-} product_data __attribute__((aligned(ALIGN))); // VERIFICARE
+} product_data __attribute__((aligned (ALIGN)));  // VERIFICARE
+
+#if defined(GPU_OMP)
+
+typedef struct
+{
+  int       *Rmax;
+  PRODFLOAT *Fmax;
+} gpu_product_data;
+
+extern gpu_product_data gpu_products, host_products;
+#pragma omp declare target(gpu_products)
+
+#elif defined(GPU_OMP_FULL)
+
+typedef struct
+{
+  int        *Rmax;
+  PRODFLOAT  *Fmax;
+} gpu_product_data;
+
+extern gpu_product_data gpu_products;
+extern int hostID; /* host's (MPI process) ID                 */
+extern int devID;  /* device's ID assigned to the MPI process */
+
+#endif // GPU_OMP_FULL
 
 extern char *main_memory, *wheretoplace_mycat;
 
@@ -229,7 +358,38 @@ extern unsigned int **seedtable;
 extern double **kdensity;
 extern double **density;
 extern double ***first_derivatives;
-extern double ***second_derivatives;
+extern double *second_derivatives;
+
+#if defined(GPU_OMP) 
+typedef struct
+{
+  double *tensor[6];
+} gpu_second_derivatives_data;
+
+extern gpu_second_derivatives_data gpu_second_derivatives;
+#pragma omp declare target(gpu_second_derivatives)
+#endif
+
+#if defined(GPU_OMP_FULL)
+// #pragma omp declare target(second_derivatives)
+#endif
+extern double **VEL_for_displ;
+
+#if defined(TABULATED_CT)
+extern int    Ncomputations, start, length;
+extern double *CT_table;
+extern double bin_x;
+extern double *delta_vector;
+extern        gsl_interp_accel *accel;
+extern FILE   *CTtableFilePointer;
+#if defined(GPU_OMP_FULL)
+#pragma omp declare target(CT_table, bin_x)
+#endif // GPU_OMP_FULL
+#endif // TABULATED_CT
+
+#if defined(TABULATED_CT) && !defined(CUSTOM_INTERPOLATION) && !defined(GPU_OMP_FULL)
+extern gsl_spline ***CT_Spline;
+#endif
 
 #ifdef TWO_LPT
 extern double *kvector_2LPT;
@@ -250,25 +410,42 @@ typedef struct
 #endif
 } smoothing_data;
 extern smoothing_data Smoothing;
+#if defined(GPU_OMP_FULL)
+#pragma omp declare target(Smoothing)
+#endif // GPU_OMP_FULL
 
 extern int Ngrids;
 typedef struct
 {
-  unsigned int total_local_size, total_local_size_fft;
-  unsigned int off, ParticlesPerTask;
-  ptrdiff_t GSglobal[3];
-  ptrdiff_t GSlocal[3];
-  ptrdiff_t GSstart[3];
-  ptrdiff_t GSlocal_k[3];
-  ptrdiff_t GSstart_k[3];
-  double lower_k_cutoff, upper_k_cutoff, norm, BoxSize, CellSize;
-  pfft_plan forward_plan, reverse_plan;
+  unsigned int       total_local_size, total_local_size_fft;
+  unsigned int       off, ParticlesPerTask;
+  ptrdiff_t          GSglobal[3];
+  ptrdiff_t          GSlocal[3];
+  ptrdiff_t          GSstart[3];
+  ptrdiff_t          GSlocal_k[3];
+  ptrdiff_t          GSstart_k[3];
+  double             lower_k_cutoff, upper_k_cutoff, norm, BoxSize, CellSize;
+  heffte_plan          plan;
   unsigned long long Ntotal;
 } grid_data;
 extern grid_data *MyGrids;
 
-extern pfft_complex **cvector_fft;
+/* DEFINE MY COMPLEX STRUCTURE FOR DOUBLE COMPLEX ARRAYS */
+struct my_double_complex
+{
+  double real;
+  double imag;
+}__attribute__((__packed__));
+
+extern long int cvector_size;
+extern struct my_double_complex **cvector_fft; /* Now cvector_fft is a struct my_double_complex, not pfft_complex anymore */
 extern double **rvector_fft;
+
+/* Structure containing informations about heffte options */
+extern heffte_plan_options options_fft;
+
+/* define inbox and outbox to be initialized in set_one_grid(ThisGrid) function */
+extern int inbox_low[3], inbox_high[3], outbox_low[3], outbox_high[3];
 
 #ifdef READ_PK_TABLE
 typedef struct
@@ -292,7 +469,7 @@ typedef struct
       CatalogInAscii, DoNotWriteCatalogs, DoNotWriteHistories, WriteTimelessSnapshot,
       OutputInH100, RandomSeed, MaxMem, NumFiles,
       BoxInH100, simpleLambda, AnalyticMassFunction, MinHaloMass, PLCProvideConeData, ExitIfExtraParticles,
-      use_transposed_fft, FixedIC, PairedIC,
+      use_transposed_fft, FixedIC, PairedIC, use_gpu_direct,
       NumMassPlanes,         /* number of mass planes for MASS_MAPS feature (0 disables) */
       MassMapNSIDE;          /* HEALPix NSIDE for MASS_MAPS (0 disables) */
   double MassMapMasterMaxGB; /* Max GB of memory rank 0 may use for one HEALPix plane (counts array) */
@@ -371,7 +548,7 @@ void mass_maps_process_segment(int segment_index, double z_segment, int is_first
 typedef struct
 {
   double init, total, dens, fft, coll, invcoll, ell, vel, lpt, fmax, distr, sort, group, frag, io,
-      deriv, mem_transf, partial, set_subboxes, set_plc, memory_allocation, fft_initialization
+      deriv, mem_transf, partial, set_subboxes, set_plc, memory_allocation, fft_initialization, fft_compute
 #ifdef PLC
       ,
       plc
@@ -379,6 +556,23 @@ typedef struct
       ;
 } cputime_data;
 extern cputime_data cputime;
+
+#if defined(GPU_OMP) || defined(GPU_OMP_FULL)
+
+typedef struct
+{
+  double collapse_times; 
+} gpu_functions;
+
+typedef struct
+{
+  /* timing of the accelerated routine */
+  gpu_functions computation;
+  /* timing of the memory transfer to/from the accelerated routine */
+  gpu_functions memory_transfer;
+} gputime_data;
+extern gputime_data gputime;
+#endif // GPU_OMP || GPU_OMP_FULL
 
 extern int WindowFunctionType;
 
@@ -546,9 +740,19 @@ extern ScaleDep_data ScaleDep;
 
 /* prototypes for functions defined in collapse_times.c */
 int compute_collapse_times(int);
+#if defined(GPU_OMP) || defined(GPU_OMP_FULL)
+int compute_collapse_times_gpu(int);
+#endif // GPU_OMP || GPU_OMP_FULL
+
 #ifdef TABULATED_CT
-int initialize_collapse_times(int, int);
-int reset_collapse_times(int);
+int    initialize_collapse_times(int, int);
+int    reset_collapse_times(int);
+double interpolate_collapse_time (const int, const double, const double, const double);
+#if defined(GPU_OMP_FULL)
+#pragma omp declare target(interpolate_collapse_time)
+#endif
+int    check_CTtable_header();
+void   write_CTtable_header();
 #endif
 
 /* prototypes for functions defined in fmax-fftw.c */
@@ -573,14 +777,17 @@ int organize_main_memory(void);
 int allocate_main_memory(void);
 int deallocate_fft_vectors(int);
 int reallocate_memory_for_fragmentation(void);
-// int rearrange_memory(int);
+//int rearrange_memory(int);
 
 /* prototypes for functions defined in GenIC.c */
 int GenIC(int);
-int GenIC_large(int); // NE BASTA UNA?
-// double VarianceOnGrid(int, double); //, double);
+int GenIC_large(int);  // NE BASTA UNA?
+//double VarianceOnGrid(int, double); //, double);
 
 /* prototypes for functions defined in initialization.c */
+#if defined(GPU_OMP) || defined(GPU_OMP_FULL) 
+int initialization_gpu_omp();
+#endif
 int initialization();
 int find_start(int, int, int);
 int find_length(int, int, int);
@@ -619,6 +826,9 @@ double GrowingMode_2LPT(double, double);
 double GrowingMode_3LPT_1(double, double);
 double GrowingMode_3LPT_2(double, double);
 double InverseGrowingMode(double, int);
+#if defined(GPU_OMP) || defined(GPU_OMP_FULL)
+#pragma omp declare target (InverseGrowingMode)
+#endif // GPU_OMP || FULL_GPU_OMP
 double ComovingDistance(double);
 double DiameterDistance(double);
 double InverseComovingDistance(double);
@@ -709,3 +919,26 @@ int find_location(int, int, int);
 int write_PLC();
 void coord_transformation_cartesian_polar(PRODFLOAT *, double *, double *, double *);
 #endif
+
+/* SCOREP */
+#if defined (_SCOREP)
+   /* remove inlining */
+   #define FORCE_INLINE
+#else
+#define FORCE_INLINE // inline
+#endif /* _SCOREP */
+
+static inline double GET_SECOND_DERIVATIVES(const int i, const int j, const int k)
+{
+  return second_derivatives[(i * 6 * MyGrids[i].total_local_size) + (j * MyGrids[i].total_local_size) + k];
+}
+
+static inline double* GET_P_SECOND_DERIVATIVES(const int i, const int j, const int k)
+{
+  return &second_derivatives[(i * 6 * MyGrids[i].total_local_size) + (j * MyGrids[i].total_local_size) + k];
+}
+
+static inline void SET_SECOND_DERIVATIVES(const int i, const int j, const int k, const double value)
+{
+  second_derivatives[(i * 6 * MyGrids[i].total_local_size) + (j * MyGrids[i].total_local_size) + k] = value;
+}

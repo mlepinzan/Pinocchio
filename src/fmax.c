@@ -15,12 +15,10 @@
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation; either version 2 of the License, or
  (at your option) any later version.
-
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
-
  You should have received a copy of the GNU General Public License
  along with this program; if not, write to the Free Software
  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -99,26 +97,28 @@ int compute_fmax(void)
     cputmp = MPI_Wtime();
 
 #ifdef TABULATED_CT
-    /* initialize spline for interpolating collapse times */
-    if (initialize_collapse_times(ismooth, 0))
-      return 1;
+      /* initialize spline for interpolating collapse times */
+      if (initialize_collapse_times(ismooth,0))
+	return 1;
 
-    cputmp = MPI_Wtime() - cputmp;
+      if (!ThisTask)
+	{
+	  if (strcmp(params.CTtableFile,"none"))
+	    printf("[%s] Collapse times read from file %s\n",fdate(),params.CTtableFile);
+	  else
+	    printf("[%s] Collapse times computed for interpolation, cpu time =%f s\n",fdate(),cputmp);
+	}
+#endif // TABULATED_CT
 
-    if (!ThisTask)
-    {
-      if (strcmp(params.CTtableFile, "none"))
-        printf("[%s] Collapse times read from file %s\n", fdate(), params.CTtableFile);
-      else
-        printf("[%s] Collapse times computed for interpolation, cpu time =%f s\n", fdate(), cputmp);
-    }
+    if (
+#if defined(GPU_OMP) || defined(GPU_OMP_FULL)
+	  compute_collapse_times_gpu(ismooth)
+#else
+	  compute_collapse_times(ismooth)
+#endif // GPU_OMP || GPU_OMP_FULL
 
-    cputime.coll += cputmp;
-    cputmp = MPI_Wtime();
-#endif
-
-    if (compute_collapse_times(ismooth))
-      return 1;
+	  )
+	return 1;
 
 #ifdef TABULATED_CT
     /* this is needed only for debug options, to be removed in the official code */
@@ -126,10 +126,10 @@ int compute_fmax(void)
       return 1;
 #endif
 
-    cputmp = MPI_Wtime() - cputmp;
+    // cputmp = MPI_Wtime() - cputmp;
     if (!ThisTask)
       printf("[%s] Done computing collapse times, cpu time = %f s\n", fdate(), cputmp);
-    cputime.coll += cputmp;
+    // cputime.coll += cputmp;
 
     /*
 End of cycle on smoothing radii
@@ -146,6 +146,109 @@ End of cycle on smoothing radii
     fflush(stdout);
     MPI_Barrier(MPI_COMM_WORLD);
   }
+
+  #if defined(CUSTOM_INTERPOLATION) || defined(GPU_OMP) 
+  custom_cubic_spline_free(host_spline);
+
+#endif // defined(CUSTOM_INTERPOLATION) || defined(GPU_OMP)
+
+  
+#if defined(GPU_OMP)
+  /*---------------- Free GPU/CPU memory ----------------------*/
+
+  /*----- Free GPU spline ----*/
+  omp_target_free(internal.device.gpu_main_memory, devID);
+  free(host_products.Rmax);
+  free(host_products.Fmax);
+  
+#elif defined(GPU_OMP_FULL) // GPU_OMP 
+  
+  /*-------------------- Free GPU products and second derivatives -------------------------- */
+  #pragma omp target exit data map(delete: gpu_products.Rmax[0:MyGrids[0].total_local_size], \
+                                           gpu_products.Fmax[0:MyGrids[0].total_local_size], \
+                                           gpu_products) device(devID)
+
+  /*  for (int igrid = 0; igrid < Ngrids; igrid++)  */
+  /*  { */
+  /*   for (int i = 0; i < 6; i++)  */
+  /*   { */
+  /*     #pragma omp target exit data map(delete: second_derivatives[igrid][i][0: MyGrids[igrid].total_local_size]) device(devID) */
+  /*   } */
+  /*  } */
+ 
+  /* #pragma omp target exit data map(delete: second_derivatives[0:Ngrids][0:6]) device(devID) */
+  size_t count_second_derivatives = 0;
+  for (int igrid=0 ; igrid<Ngrids ; igrid++)
+    count_second_derivatives += (6 * MyGrids[igrid].total_local_size);
+
+  #pragma omp target exit data map(delete: second_derivatives[0: count_second_derivatives]) device(devID)
+  
+  /*-------------------- Free GPU Splines and Smoothing -------------------------- */
+  #pragma omp target exit data map(delete: Smoothing.Radius[0:Smoothing.Nsmooth],  \
+                                           Smoothing.Variance[0:Smoothing.Nsmooth],\
+                                           Smoothing.TrueVariance[0:Smoothing.Nsmooth]) device(devID)
+
+   /* Free gpu_spline */
+  #pragma omp target exit data map(delete: gpu_spline[0:1],		               \
+                                           gpu_spline->d2y_data[0:NBINS],    \
+                                           gpu_spline->coeff_a[0:NBINS - 1], \
+                                           gpu_spline->coeff_b[0:NBINS - 1], \
+                                           gpu_spline->coeff_c[0:NBINS - 1], \
+                                           gpu_spline->coeff_d[0:NBINS - 1]) device(devID)
+
+   
+  #if defined(TABULATED_CT)
+  #define CT_NBINS_XY (50) 
+  #define CT_NBINS_D (100)
+  
+  /* Free GPU memory */
+  for (int i = 0; i < CT_NBINS_XY; ++i) {
+    for (int j = 0; j < CT_NBINS_XY; ++j) {
+        int index = i * CT_NBINS_XY + j;
+
+        #pragma omp target exit data map(delete: CT_Spline[index]->d2y_data[0:CT_NBINS_D],    \
+                                                 CT_Spline[index]->coeff_a[0:CT_NBINS_D - 1], \
+                                                 CT_Spline[index]->coeff_b[0:CT_NBINS_D - 1], \
+                                                 CT_Spline[index]->coeff_c[0:CT_NBINS_D - 1], \
+	                                               CT_Spline[index]->coeff_d[0:CT_NBINS_D - 1], \
+	                                               CT_Spline[index][0:1]) device(devID)
+      }
+  }
+
+  #pragma omp target exit data map(delete: CT_Spline[0:CT_NBINS_XY * CT_NBINS_XY]) device(devID)
+
+  // Ensure you free memory properly when no longer needed on the CPU
+   for (int i = 0; i < CT_NBINS_XY; ++i)
+   {
+      for (int j = 0; j < CT_NBINS_XY; ++j)
+      {
+        const int index = i * CT_NBINS_XY + j;
+
+	if (CT_Spline[index]->x != NULL)
+	  free(CT_Spline[index]->x);
+	if (CT_Spline[index]->y != NULL)
+	  free(CT_Spline[index]->y);
+
+	if (CT_Spline[index]->d2y_data != NULL)
+	  free(CT_Spline[index]->d2y_data);
+
+	if (CT_Spline[index]->coeff_a != NULL)
+	  free(CT_Spline[index]->coeff_a);
+
+	if (CT_Spline[index]->coeff_b != NULL)
+	  free(CT_Spline[index]->coeff_b);
+
+	if (CT_Spline[index]->coeff_c != NULL)
+	  free(CT_Spline[index]->coeff_c);
+
+	if (CT_Spline[index]->coeff_d != NULL)
+	  free(CT_Spline[index]->coeff_d);
+      }
+   }
+
+   free(CT_Spline);
+#endif // CT_TABLE
+#endif // FULL_GPU_OMP
 
   /********************************
    * COMPUTATION OF DISPLACEMENTS *
@@ -187,32 +290,33 @@ End of cycle on smoothing radii
   return 0;
 }
 
-int compute_first_derivatives(double R, int ThisGrid, int order, double *vector)
+
+int compute_first_derivatives(double R, int ThisGrid, int order, double* vector)
 {
   /* computes second derivatives of the potential */
 
   double timetmp = 0;
-
+  
   /* smoothing radius in grid units */
   Rsmooth = R / MyGrids[ThisGrid].CellSize;
 
-  for (int ia = 1; ia <= 3; ia++)
-  {
+  for (int ia=1; ia<=3; ia++)
+    {
 
-    if (!ThisTask)
-      printf("[%s] Computing 1st derivative: %d\n", fdate(), ia);
+      if (!ThisTask)
+	printf("[%s] Computing 1st derivative: %d\n",fdate(),ia);
 
-    double tmp = MPI_Wtime();
-    write_in_cvector(ThisGrid, vector);
-    timetmp += MPI_Wtime() - tmp;
+      double tmp = MPI_Wtime();
+      write_in_cvector(ThisGrid, vector);
+      timetmp += MPI_Wtime() - tmp;
 
-    if (compute_derivative(ThisGrid, ia, 0))
-      return 1;
+      if (compute_derivative(ThisGrid,ia,0))
+	return 1;
 
-    tmp = MPI_Wtime();
-    write_from_rvector_to_products(ThisGrid, ia - 1, order);
-    timetmp += MPI_Wtime() - tmp;
-  }
+      tmp = MPI_Wtime();
+      write_from_rvector_to_products(ThisGrid, ia-1, order);
+      timetmp += MPI_Wtime() - tmp;
+    }
 
   cputime.mem_transf += timetmp;
   return 0;
@@ -224,30 +328,31 @@ int compute_second_derivatives(double R, int ThisGrid)
   /* computes second derivatives of the potential */
 
   double timetmp = 0;
-
+  
   /* smoothing radius in grid units */
   Rsmooth = R / MyGrids[ThisGrid].CellSize;
 
-  for (int ia = 1; ia <= 3; ia++)
-    for (int ib = ia; ib <= 3; ib++)
-    {
+  for ( int ia = 1; ia <= 3; ia++ )
+    for ( int ib = ia; ib <= 3; ib++ )
+      {
 
-      int ider = (ia == ib ? ia : ia + ib + 1);
+	int ider=( ia == ib ? ia : ia+ib+1 );
 
-      if (!ThisTask)
-        printf("[%s] Computing 2nd derivative: %d\n", fdate(), ider);
+	if (!ThisTask)
+	  printf("[%s] Computing 2nd derivative: %d\n",fdate(),ider);
 
-      double tmp = MPI_Wtime();
-      write_in_cvector(ThisGrid, kdensity[ThisGrid]);
-      timetmp += MPI_Wtime() - tmp;
+	double tmp = MPI_Wtime();
+	write_in_cvector(ThisGrid, kdensity[ThisGrid]);
+	timetmp += MPI_Wtime() - tmp;
 
-      if (compute_derivative(ThisGrid, ia, ib))
-        return 1;
+	if (compute_derivative(ThisGrid,ia,ib))
+	  return 1;
 
-      tmp = MPI_Wtime();
-      write_from_rvector(ThisGrid, second_derivatives[ThisGrid][ider - 1]);
-      timetmp += MPI_Wtime() - tmp;
-    }
+	tmp = MPI_Wtime();
+	/* write_from_rvector(ThisGrid, second_derivatives[ThisGrid][ider-1]); */
+	write_from_rvector(ThisGrid, GET_P_SECOND_DERIVATIVES(ThisGrid, ider-1, 0));
+	timetmp += MPI_Wtime() - tmp;
+      }
 
   cputime.mem_transf += timetmp;
   return 0;

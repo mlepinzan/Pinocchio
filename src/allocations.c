@@ -2,37 +2,44 @@
  *                        PINOCCHIO  V5.1                        *
  *  (PINpointing Orbit-Crossing Collapsed HIerarchical Objects)  *
  *****************************************************************
-
+ 
  This code was written by
- Pierluigi Monaco, Tom Theuns, Giuliano Taffoni, Marius Lepinzan,
+ Pierluigi Monaco, Tom Theuns, Giuliano Taffoni, Marius Lepinzan, 
  Chiara Moretti, Luca Tornatore, David Goz, Tiago Castro
  Copyright (C) 2025
-
+ 
  github: https://github.com/pigimonaco/Pinocchio
  web page: http://adlibitum.oats.inaf.it/monaco/pinocchio.html
-
+ 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation; either version 2 of the License, or
  (at your option) any later version.
-
+ 
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
-
+ 
  You should have received a copy of the GNU General Public License
  along with this program; if not, write to the Free Software
  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
 #include "pinocchio.h"
+#include <stdbool.h>
 
-// #define VERBOSE
+//#define VERBOSE
 
-#define ALIGN_MEMORY_BLOCK(M) \
-  while ((M) % ALIGN)         \
-  M++
+#define ALIGN_MEMORY_BLOCK(M) while( (M) % ALIGN ) M++
+
+#if defined(GPU_OMP) || defined(GPU_OMP_FULL)
+   #if defined(GPU_OMP_DEBUG)
+      #define GPU_ALIGN_MEMORY_BLOCK(M)
+   #else
+      #define GPU_ALIGN_MEMORY_BLOCK(M) while( (M) % ALIGN_GPU ) M++
+   #endif // GPU_OMP_DEBUG
+#endif // GPU_OMP
 
 int organize_main_memory()
 {
@@ -125,46 +132,46 @@ int organize_main_memory()
   /***********************************************/
   /* COLLAPSE TIMES PART                         */
   /* this is the memory needed to store products */
-  memory.prods = MyGrids[0].total_local_size * sizeof(product_data); /* products */
-  ALIGN_MEMORY_BLOCK(memory.prods);
+  memory.prods = MyGrids[0].total_local_size * sizeof(product_data);       /* products */
+  ALIGN_MEMORY_BLOCK( memory.prods );
   memory.fields = memory.fields_to_keep = 0;
 
   /* these fields are needed after products if displacements are recomputed */
-  for (igrid = 0; igrid < Ngrids; igrid++)
-  {
-    memory.fields_to_keep += MyGrids[igrid].total_local_size_fft * sizeof(double); /* kdensity */
-    ALIGN_MEMORY_BLOCK(memory.fields_to_keep);
-  }
+  for (igrid=0; igrid<Ngrids; igrid++)
+    {
+      memory.fields_to_keep += MyGrids[igrid].total_local_size_fft * sizeof(double); /* kdensity */
+      ALIGN_MEMORY_BLOCK( memory.fields_to_keep );
+    }
 #ifdef TWO_LPT
-  memory.fields_to_keep += MyGrids[0].total_local_size_fft * sizeof(double); /* kvector_2LPT */
-  ALIGN_MEMORY_BLOCK(memory.fields_to_keep);
+  memory.fields_to_keep += MyGrids[0].total_local_size_fft * sizeof(double);    /* kvector_2LPT */
+  ALIGN_MEMORY_BLOCK( memory.fields_to_keep );
 #ifdef THREE_LPT
-  memory.fields_to_keep += MyGrids[0].total_local_size_fft * sizeof(double); /* kvector_3LPT_1 */
-  ALIGN_MEMORY_BLOCK(memory.fields_to_keep);
-  memory.fields_to_keep += MyGrids[0].total_local_size_fft * sizeof(double); /* kvector_3LPT_2 */
-  ALIGN_MEMORY_BLOCK(memory.fields_to_keep);
+  memory.fields_to_keep += MyGrids[0].total_local_size_fft * sizeof(double);    /* kvector_3LPT_1 */
+  ALIGN_MEMORY_BLOCK( memory.fields_to_keep );
+  memory.fields_to_keep += MyGrids[0].total_local_size_fft * sizeof(double);    /* kvector_3LPT_2 */
+  ALIGN_MEMORY_BLOCK( memory.fields_to_keep );
 #endif
 #endif
 
   /* these fields are needed only by Fmax */
-  for (igrid = 0; igrid < Ngrids; igrid++)
-    for (int dim = 0; dim < 6; dim++)
-    {
-      memory.fields += MyGrids[igrid].total_local_size * sizeof(double); /* second_derivatives */
-      ALIGN_MEMORY_BLOCK(memory.fields);
-    }
+  for (igrid=0; igrid<Ngrids; igrid++)
+    for (int dim=0; dim<6; dim++)
+      {
+	memory.fields += MyGrids[igrid].total_local_size * sizeof(double); /* second_derivatives */
+	ALIGN_MEMORY_BLOCK( memory.fields );
+      }
 
   /* for (igrid=0; igrid<Ngrids; igrid++) */
   /*   memory.fields += MyGrids[igrid].GSglobal[_x_] * MyGrids[igrid].GSglobal[_y_] * sizeof(unsigned int);  /\* seedtable *\/ */
 
   /* memory allocated by PFFT */
-  for (igrid = 0, memory.fft = 0; igrid < Ngrids; igrid++)
-  {
-    memory.fft += MyGrids[igrid].total_local_size_fft * sizeof(double);
-    ALIGN_MEMORY_BLOCK(memory.fft);
-    memory.fft += MyGrids[igrid].total_local_size_fft * sizeof(double);
-    ALIGN_MEMORY_BLOCK(memory.fft);
-  }
+  for (igrid=0, memory.fft=0; igrid<Ngrids; igrid++)
+    {
+      memory.fft += MyGrids[igrid].total_local_size_fft * sizeof(double);
+      ALIGN_MEMORY_BLOCK( memory.fft );
+      memory.fft += MyGrids[igrid].total_local_size_fft * sizeof(double);
+      ALIGN_MEMORY_BLOCK( memory.fft );
+    }
 
   memory.first_allocated = memory.prods + memory.fields_to_keep + memory.fields;
   memory.fmax_total = memory.first_allocated + memory.fft;
@@ -174,95 +181,98 @@ int organize_main_memory()
   /* this is the memory needed to fragment the collapsed medium, including PLC data
      and the map for needed particles on the boundary */
   memory.groups = subbox.PredNpeaks * sizeof(group_data);
-  ALIGN_MEMORY_BLOCK(memory.groups);
-  memory.groups += subbox.PredNpeaks * +sizeof(histories_data);
-  ALIGN_MEMORY_BLOCK(memory.groups);
+  ALIGN_MEMORY_BLOCK( memory.groups );
+  memory.groups += subbox.PredNpeaks *  + sizeof(histories_data);
+  ALIGN_MEMORY_BLOCK( memory.groups );
 #ifdef PLC
   memory.groups += plc.Nmax * sizeof(plcgroup_data);
-  ALIGN_MEMORY_BLOCK(memory.groups);
+  ALIGN_MEMORY_BLOCK( memory.groups );
 #endif
-  memory.groups += subbox.maplength * sizeof(unsigned int);
-  ALIGN_MEMORY_BLOCK(memory.groups);
-  memory.groups += subbox.maplength * sizeof(unsigned int);
-  ALIGN_MEMORY_BLOCK(memory.groups);
+  memory.groups += subbox.maplength*sizeof(unsigned int);
+  ALIGN_MEMORY_BLOCK( memory.groups );
+  memory.groups += subbox.maplength*sizeof(unsigned int);
+  ALIGN_MEMORY_BLOCK( memory.groups );
 
   /* Here it computes the number of particles it can allocate for the subbox */
-  size_t other_mem = memory.prods + memory.groups
+  size_t other_mem = memory.prods + memory.groups 
 #ifdef RECOMPUTE_DISPLACEMENTS
-                     + memory.fields_to_keep + memory.fft
+    + memory.fields_to_keep + memory.fft
 #endif
-      ;
+    ;
 
   if (other_mem > MyGrids[0].ParticlesPerTask * params.MaxMemPerParticle)
-    myNalloc = 0;
+    myNalloc=0;
   else
-    /* -10 is to compensate for remainder in integer division */
-    myNalloc = (MyGrids[0].ParticlesPerTask * params.MaxMemPerParticle - other_mem) / (sizeof(product_data) + FRAGFIELDS * sizeof(int)) - 10;
+   /* -10 is to compensate for remainder in integer division */
+    myNalloc = (MyGrids[0].ParticlesPerTask*params.MaxMemPerParticle - other_mem) 
+      / (sizeof(product_data) + FRAGFIELDS * sizeof(int)) -10;
 
   /* Nalloc will be the smallest among all tasks */
   MPI_Reduce(&myNalloc, &Nalloc, 1, MPI_UNSIGNED, MPI_MIN, 0, MPI_COMM_WORLD);
   MPI_Bcast(&Nalloc, 1, MPI_UNSIGNED, 0, MPI_COMM_WORLD);
 
-  memory.frag_prods = Nalloc * sizeof(product_data);
+  memory.frag_prods  = Nalloc * sizeof(product_data);
   memory.frag_arrays = Nalloc * FRAGFIELDS * sizeof(int);
   /* this is the memory occupied by fragmentation */
   memory.frag_allocated = memory.prods + memory.frag_prods + memory.groups + memory.frag_arrays
 #ifdef RECOMPUTE_DISPLACEMENTS
-                          + memory.fields_to_keep
+    + memory.fields_to_keep
 #endif
-      ;
+    ;
   memory.frag_total = memory.frag_allocated
 #ifdef RECOMPUTE_DISPLACEMENTS
-                      + memory.fft
+    + memory.fft
 #endif
-      ;
+    ;
+
 
 #ifdef CLASSIC_FRAGMENTATION
-  if (myNalloc < subbox.Npart)
-  {
-    printf("ERROR: Task %d can allocate only %d subbox particles, while %d are needed;\n",
-           ThisTask, myNalloc, subbox.Npart);
-    printf("       a large overhead is probably needed, please increase MaxMemPerParticle\n");
-    return (size_t)0;
-  }
+  if (myNalloc<subbox.Npart)
+    {
+      printf("ERROR: Task %d can allocate only %d subbox particles, while %d are needed;\n",
+	     ThisTask,myNalloc,subbox.Npart);
+      printf("       a large overhead is probably needed, please increase MaxMemPerParticle\n");
+      return (size_t)0;
+    }
 #endif
 
   /* this is the largest amount of memory needed by the code */
   memory.all_allocated = (memory.first_allocated > memory.frag_allocated ? memory.first_allocated : memory.frag_allocated);
   memory.all = (memory.fmax_total > memory.frag_total ? memory.fmax_total : memory.frag_total);
 
-  double myfraction = (double)Nalloc / (double)subbox.Ngood;
+  double myfraction=(double)Nalloc/(double)subbox.Ngood;
   double minfraction;
   MPI_Reduce(&myfraction, &minfraction, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
 
   if (!ThisTask)
-  {
-    if (minfraction < 0.5)
     {
-      printf("ERROR: for some tasks the number of allocatable particles is only a factor %8f\n", minfraction);
-      printf("       times the number of good particles in the subbox; this is far too small!\n");
-      printf("       Please increase MaxMemPerParticle\n");
-      fflush(stdout);
-      return (size_t)0;
+      if (minfraction<0.5)
+	{
+	  printf("ERROR: for some tasks the number of allocatable particles is only a factor %8f\n",minfraction);
+	  printf("       times the number of good particles in the subbox; this is far too small!\n");
+	  printf("       Please increase MaxMemPerParticle\n");
+	  fflush(stdout);
+	  return (size_t)0;
+	}
     }
-  }
 
   return Nalloc;
 }
 
+
+
 int allocate_main_memory()
 {
-  /*
+  /* 
      This routine allocates all the memory needed to contain information
      on particles and groups.
   */
 
-  int igrid, i;
+  int igrid,i;
   size_t count_memory;
-  struct map
-  {
-    int lx, ly, lz;
-    double oh, am, m1, m2, m3, m4, m5, m6, m7, m8;
+  struct map{
+    int lx,ly,lz;
+    double oh,am,m1,m2,m3,m4,m5,m6,m7,m8;
   } mymap;
   MPI_Status status;
 #ifdef VERBOSE
@@ -272,233 +282,603 @@ int allocate_main_memory()
 #endif
 
   /* map of memory usage for all tasks */
-  mymap.lx = MyGrids[0].GSlocal[_x_];
-  mymap.ly = MyGrids[0].GSlocal[_y_];
-  mymap.lz = MyGrids[0].GSlocal[_z_];
-  mymap.am = (double)memory.all / MBYTE;
-  mymap.oh = (double)subbox.Nalloc / (double)MyGrids[0].ParticlesPerTask;
-  mymap.m1 = (double)memory.prods / (double)MyGrids[0].ParticlesPerTask;
-  mymap.m2 = (double)(memory.fields + memory.fields_to_keep) / (double)MyGrids[0].ParticlesPerTask;
-  mymap.m3 = (double)memory.fft / (double)MyGrids[0].ParticlesPerTask;
-  mymap.m4 = (double)memory.fmax_total / (double)MyGrids[0].ParticlesPerTask;
-  mymap.m5 = (double)memory.frag_prods / (double)MyGrids[0].ParticlesPerTask;
-  mymap.m6 = (double)(memory.groups + memory.frag_arrays) / (double)MyGrids[0].ParticlesPerTask;
-  mymap.m7 = (double)memory.frag_total / (double)MyGrids[0].ParticlesPerTask;
-  mymap.m8 = (double)memory.all / (double)MyGrids[0].ParticlesPerTask;
+  mymap.lx=MyGrids[0].GSlocal[_x_];
+  mymap.ly=MyGrids[0].GSlocal[_y_];
+  mymap.lz=MyGrids[0].GSlocal[_z_];
+  mymap.am=(double)memory.all/MBYTE;
+  mymap.oh=(double)subbox.Nalloc/(double)MyGrids[0].ParticlesPerTask;
+  mymap.m1=(double)memory.prods/(double)MyGrids[0].ParticlesPerTask;
+  mymap.m2=(double)(memory.fields+memory.fields_to_keep)/(double)MyGrids[0].ParticlesPerTask;
+  mymap.m3=(double)memory.fft/(double)MyGrids[0].ParticlesPerTask;
+  mymap.m4=(double)memory.fmax_total/(double)MyGrids[0].ParticlesPerTask;
+  mymap.m5=(double)memory.frag_prods/(double)MyGrids[0].ParticlesPerTask;
+  mymap.m6=(double)(memory.groups+memory.frag_arrays)/(double)MyGrids[0].ParticlesPerTask;
+  mymap.m7=(double)memory.frag_total/(double)MyGrids[0].ParticlesPerTask;
+  mymap.m8=(double)memory.all/(double)MyGrids[0].ParticlesPerTask;
 
   if (!ThisTask)
-  {
-    printf("\n");
-    printf("Map of memory usage for all MPI tasks\n");
-    printf("Task N.   FFT domain      mem(MB) overhead   products   fields     ffts     fmax  frag pr.  groups fragment  total bytes per particle\n");
-  }
-  for (i = 0; i < NTasks; i++)
-  {
-    if (!ThisTask)
     {
-      if (i)
-        MPI_Recv((void *)&mymap, sizeof(struct map), MPI_BYTE, i, 0, MPI_COMM_WORLD, &status);
-      printf("%6d  %4d-%4d-%4d  %8.0f  %6.1f       %6.1f   %6.1f   %6.1f   %6.1f   %6.1f   %6.1f   %6.1f   %6.1f\n",
-             i, mymap.lx, mymap.ly, mymap.lz, mymap.am, mymap.oh, mymap.m1, mymap.m2, mymap.m3, mymap.m4, mymap.m5, mymap.m6, mymap.m7, mymap.m8);
+      printf("\n");
+      printf("Map of memory usage for all MPI tasks\n");
+      printf("Task N.   FFT domain      mem(MB) overhead   products   fields     ffts     fmax  frag pr.  groups fragment  total bytes per particle\n");
     }
-    else if (ThisTask == i)
-      MPI_Send((void *)&mymap, sizeof(struct map), MPI_BYTE, 0, 0, MPI_COMM_WORLD);
-  }
+  for (i=0; i<NTasks; i++)
+    {
+      if (!ThisTask)
+	{
+	  if (i)
+	    MPI_Recv((void*)&mymap, sizeof(struct map), MPI_BYTE, i, 0, MPI_COMM_WORLD, &status);
+	  printf("%6d  %4d-%4d-%4d  %8.0f  %6.1f       %6.1f   %6.1f   %6.1f   %6.1f   %6.1f   %6.1f   %6.1f   %6.1f\n",
+		 i, mymap.lx,mymap.ly,mymap.lz, mymap.am, mymap.oh, mymap.m1, mymap.m2, mymap.m3, mymap.m4, mymap.m5, mymap.m6, mymap.m7, mymap.m8);
+	}
+      else if (ThisTask==i)
+	MPI_Send((void*)&mymap, sizeof(struct map), MPI_BYTE, 0, 0, MPI_COMM_WORLD);
+    }
   if (!ThisTask)
-  {
-    printf("\n");
-    fflush(stdout);
-  }
+    {
+      printf("\n");  
+      fflush(stdout);
+    }
 
   /* this is just to have a little margin */
-  memory.all += 10;
+  memory.all+=10;
 
   /* it tests than there is enough space to allocate all needed memory */
-  main_memory = (char *)calloc(memory.all, sizeof(char));
-  if (main_memory == 0x0)
-  {
-    printf("ERROR on task %d: I cannot allocate memory\n", ThisTask);
-    fflush(stdout);
-    return 1;
-  }
+  main_memory=(char*)calloc(memory.all,sizeof(char));
+  if (main_memory==0x0)
+    {
+      printf("ERROR on task %d: I cannot allocate memory\n",ThisTask);
+      fflush(stdout);
+      return 1;
+    }
   free(main_memory);
 
   /* allocates main memory */
-  main_memory = (char *)calloc(memory.first_allocated, sizeof(char));
-  if (main_memory == 0x0)
+  main_memory=(char*)calloc(memory.first_allocated,sizeof(char));
+  if (main_memory==0x0)
+    {
+      printf("ERROR on taks %d: I cannot allocate memory after first successful attempt\n", ThisTask);
+      fflush(stdout);
+      return 1;
+    }
+
+#if defined(GPU_OMP)
+
+  /*--------------------------- GPU spline memory -----------------------------*/
+
+  internal.device.memory_spline.count = 0;
+  
+  internal.device.memory_spline.offset = 0;
+  
+  /* CubicSpline.x */
+  internal.device.memory_spline.x = 0;
+  internal.device.memory_spline.count += (NBINS * sizeof(double));
+  GPU_ALIGN_MEMORY_BLOCK(internal.device.memory_spline.count);
+
+  /* CubicSpline.y */
+  internal.device.memory_spline.y = internal.device.memory_spline.count;
+  internal.device.memory_spline.count += (NBINS * sizeof(double));
+  GPU_ALIGN_MEMORY_BLOCK(internal.device.memory_spline.count);
+
+  /* CubicSpline.d2y_data */
+  internal.device.memory_spline.d2y_data = internal.device.memory_spline.count;
+  internal.device.memory_spline.count += ((NBINS - 1) * sizeof(double));
+  GPU_ALIGN_MEMORY_BLOCK(internal.device.memory_spline.count);
+
+  /* CubicSpline.coeff_a */
+  internal.device.memory_spline.coeff_a = internal.device.memory_spline.count;
+  internal.device.memory_spline.count += ((NBINS - 1) * sizeof(double));
+  GPU_ALIGN_MEMORY_BLOCK(internal.device.memory_spline.count);
+
+  /* CubicSpline.coeff_b */
+  internal.device.memory_spline.coeff_b = internal.device.memory_spline.count;
+  internal.device.memory_spline.count += ((NBINS - 1) * sizeof(double));
+  GPU_ALIGN_MEMORY_BLOCK(internal.device.memory_spline.count);
+
+  /* CubicSpline.coeff_c */
+  internal.device.memory_spline.coeff_c = internal.device.memory_spline.count;
+  internal.device.memory_spline.count += ((NBINS - 1) * sizeof(double));
+  GPU_ALIGN_MEMORY_BLOCK(internal.device.memory_spline.count);
+  
+  /* CubicSpline.coeff_d */
+  internal.device.memory_spline.coeff_d = internal.device.memory_spline.count;
+  internal.device.memory_spline.count += ((NBINS - 1) * sizeof(double));
+  GPU_ALIGN_MEMORY_BLOCK(internal.device.memory_spline.count);
+  
+  /*---------------------------------------------------------------------------*/
+  
+  /*--------------------------- GPU products memory ---------------------------*/
+
+  internal.device.memory_products.count = 0;
+  
+  internal.device.memory_products.offset = internal.device.memory_spline.count;
+  
+  /* gpu_product_data.Rmax */
+  internal.device.memory_products.Rmax   = 0;
+  internal.device.memory_products.count += (MyGrids[0].total_local_size * sizeof(int));
+  GPU_ALIGN_MEMORY_BLOCK(internal.device.memory_products.count);
+
+  /* gpu_product_data.Fmax */
+  internal.device.memory_products.Fmax   = internal.device.memory_products.count;
+  internal.device.memory_products.count += (MyGrids[0].total_local_size * sizeof(PRODFLOAT));
+  GPU_ALIGN_MEMORY_BLOCK(internal.device.memory_products.count);
+
+  /*---------------------------------------------------------------------------*/
+
+  /*--------------------------- GPU second derivatives memory -----------------*/
+  
+  internal.device.memory_second_derivatives.offset = internal.device.memory_products.count;
+  
+  /* loop over tensors */
+  internal.device.memory_second_derivatives.count = 0;
+  for (int i=0 ; i<6 ; i++)
+    {
+      internal.device.memory_second_derivatives.tensor[i] = internal.device.memory_second_derivatives.count;
+      internal.device.memory_second_derivatives.count += (MyGrids[0].total_local_size * sizeof(double));
+      GPU_ALIGN_MEMORY_BLOCK(internal.device.memory_second_derivatives.count);
+    }
+
+  /*---------------------------------------------------------------------------*/
+
+  /*---------------------- GPU total required memory --------------------------*/
+
+  internal.device.memory = internal.device.memory_spline.count              +
+                           internal.device.memory_products.count            +
+                           internal.device.memory_second_derivatives.count;
+
+  /* GPU memory allocation */
+  internal.device.gpu_main_memory = (char *)omp_target_alloc(internal.device.memory, devID);
+
+  if (internal.device.gpu_main_memory == NULL)
+    {
+      printf("\n\t ERROR on task %d: cannot allocate memory on the GPU \n", ThisTask);
+      fflush(stdout);
+      return 2;
+    }
+  else
+    {
+      if (ThisTask == 0)
+	{
+	  printf("\n\t Total GPU memory allocated %lg [Mbytes] \n\n", internal.device.memory / 1024. / 1024.);
+	  fflush(stdout);
+	}
+    }
+  
+  /****************************************************************************/
+
+  /*--------------------- Set GPU pointers to allocated memory ---------------*/
+  /*--------------------- and check GPU is working             ---------------*/
+
+  int gpu_working;
+  char *const gpu_main_memory      = internal.device.gpu_main_memory;
+
+  const size_t mem_spline_x        = internal.device.memory_spline.offset + internal.device.memory_spline.x;
+  const size_t mem_spline_y        = internal.device.memory_spline.offset + internal.device.memory_spline.y;
+  const size_t mem_spline_d2y_data = internal.device.memory_spline.offset + internal.device.memory_spline.d2y_data;
+  const size_t mem_spline_coeff_a  = internal.device.memory_spline.offset + internal.device.memory_spline.coeff_a;
+  const size_t mem_spline_coeff_b  = internal.device.memory_spline.offset + internal.device.memory_spline.coeff_b;
+  const size_t mem_spline_coeff_c  = internal.device.memory_spline.offset + internal.device.memory_spline.coeff_c;
+  const size_t mem_spline_coeff_d  = internal.device.memory_spline.offset + internal.device.memory_spline.coeff_d;
+
+  const size_t mem_products_Rmax   = internal.device.memory_products.offset + internal.device.memory_products.Rmax;
+  const size_t mem_products_Fmax   = internal.device.memory_products.offset + internal.device.memory_products.Fmax;
+
+  const size_t mem_second_der_tensor[6] = {internal.device.memory_second_derivatives.offset + internal.device.memory_second_derivatives.tensor[0],
+					   internal.device.memory_second_derivatives.offset + internal.device.memory_second_derivatives.tensor[1],
+					   internal.device.memory_second_derivatives.offset + internal.device.memory_second_derivatives.tensor[2],
+					   internal.device.memory_second_derivatives.offset + internal.device.memory_second_derivatives.tensor[3],
+					   internal.device.memory_second_derivatives.offset + internal.device.memory_second_derivatives.tensor[4],
+					   internal.device.memory_second_derivatives.offset + internal.device.memory_second_derivatives.tensor[5]};
+  
+#pragma omp target is_device_ptr(gpu_main_memory) map(from: gpu_working) device(devID)
   {
-    printf("ERROR on taks %d: I cannot allocate memory after first successful attempt\n", ThisTask);
-    fflush(stdout);
-    return 1;
+    gpu_working = (omp_is_initial_device() ? 0 : 1);
+    
+    /*********************************** gpu_spline *************************************/
+    gpu_spline.size = NBINS;
+    
+    gpu_spline.x = (double *)(gpu_main_memory + mem_spline_x);
+      
+    gpu_spline.y = (double *)(gpu_main_memory + mem_spline_y);
+    
+    gpu_spline.d2y_data = (double *)(gpu_main_memory + mem_spline_d2y_data);
+
+    gpu_spline.coeff_a = (double *)(gpu_main_memory + mem_spline_coeff_a);
+
+    gpu_spline.coeff_b = (double *)(gpu_main_memory + mem_spline_coeff_b);
+    
+    gpu_spline.coeff_c = (double *)(gpu_main_memory + mem_spline_coeff_c);
+    
+    gpu_spline.coeff_d = (double *)(gpu_main_memory + mem_spline_coeff_d);
+    /************************************************************************************/
+
+    /************************************ gpu_products **********************************/
+    gpu_products.Rmax = (int *)(gpu_main_memory + mem_products_Rmax);
+
+    gpu_products.Fmax = (PRODFLOAT *)(gpu_main_memory + mem_products_Fmax);
+    /************************************************************************************/
+
+    /********************************** gpu_second_derivatives **************************/
+    for (int i=0 ; i<6 ; i++)
+      gpu_second_derivatives.tensor[i] = (double *)(gpu_main_memory + mem_second_der_tensor[i]);
+    /************************************************************************************/
+  } // omp target
+
+  if (!gpu_working)
+    {
+      printf("\n\t ERROR on task %d: GPU is not working \n", ThisTask);
+      fflush(stdout);
+      return 2;
+    }
+  else
+    {
+      if (ThisTask == 0)
+	{
+	  printf("\n\t GPU is working \n");
+	  fflush(stdout);
+	}
+    }
+  
+  /* copy the spline to the GPU */
+  if (host_spline == NULL)
+    {
+      printf("\n\t ERROR on task %d: cannot copy custom spline to the GPU \n", ThisTask);
+      fflush(stdout);
+      return 3;
+    }
+  else
+    {
+      if (ThisTask == 0)
+	{
+	  printf("\n\t Copying custom spline to the GPU \n");
+	  fflush(stdout);
+	}
+    }
+  
+  /* gpu_spline->x */
+  omp_target_memcpy((void *)gpu_main_memory,
+		    (void *)host_spline->x,
+		    (host_spline->size * sizeof(double)),
+		    (internal.device.memory_spline.offset + internal.device.memory_spline.x),
+		    0,
+		    devID,
+		    hostID);
+
+  /* gpu_spline->y */
+  omp_target_memcpy((void *)gpu_main_memory,
+		    (void *)host_spline->y,
+		    (host_spline->size * sizeof(double)),
+		    (internal.device.memory_spline.offset + internal.device.memory_spline.y),
+		    0,
+		    devID,
+		    hostID);
+  
+  /* gpu_spline->d2y_data */
+  omp_target_memcpy((void *)gpu_main_memory,
+		    (void *)host_spline->d2y_data,
+		    ((host_spline->size - 1) * sizeof(double)),
+		    (internal.device.memory_spline.offset + internal.device.memory_spline.d2y_data),
+		    0,
+		    devID,
+		    hostID);
+
+  /* gpu_spline->coeff_a */
+  omp_target_memcpy((void *)gpu_main_memory,
+		    (void *)host_spline->coeff_a,
+		    ((host_spline->size - 1) * sizeof(double)),
+		    (internal.device.memory_spline.offset + internal.device.memory_spline.coeff_a),
+		    0,
+		    devID,
+		    hostID);
+
+  /* gpu_spline->coeff_b */
+  omp_target_memcpy((void *)gpu_main_memory,
+		    (void *)host_spline->coeff_b,
+		    ((host_spline->size - 1) * sizeof(double)),
+		    (internal.device.memory_spline.offset + internal.device.memory_spline.coeff_b),
+		    0,
+		    devID,
+		    hostID);
+
+  /* gpu_spline->coeff_c */
+  omp_target_memcpy((void *)gpu_main_memory,
+		    (void *)host_spline->coeff_c,
+		    ((host_spline->size - 1) * sizeof(double)),
+		    (internal.device.memory_spline.offset + internal.device.memory_spline.coeff_c),
+		    0,
+		    devID,
+		    hostID);
+
+  /* gpu_spline->coeff_d */
+  omp_target_memcpy((void *)gpu_main_memory,
+		    (void *)host_spline->coeff_d,
+		    ((host_spline->size - 1) * sizeof(double)),
+		    (internal.device.memory_spline.offset + internal.device.memory_spline.coeff_d),
+		    0,
+		    devID,
+		    hostID);
+  
+  /*--------------------------------------------------------------------------*/
+
+  /* allocate host memory for host_products */
+  host_products.Rmax = (int *)malloc(MyGrids[0].total_local_size * sizeof(int));
+  host_products.Fmax = (PRODFLOAT *)malloc(MyGrids[0].total_local_size * sizeof(PRODFLOAT));
+  assert((host_products.Rmax != NULL) && (host_products.Fmax != NULL));
+  
+#elif defined(GPU_OMP_FULL)
+
+  // Check if GPU is available
+  int gpu_working = 0;
+  #pragma omp target map(from: gpu_working) device(devID)
+  {
+    gpu_working = (omp_is_initial_device() ? 0 : 1);
   }
 
+  if (!gpu_working) {
+    printf("\n\t ERROR on task %d: GPU is not working \n", ThisTask);
+    fflush(stdout);
+    return 2;
+  } else {
+    if (ThisTask == 0) {
+        printf("\n\t GPU is working \n", devID);
+        fflush(stdout);
+    }
+  }
+
+  // Allocate memory for the gpu struc products on the CPU
+  gpu_products.Rmax = (int *)malloc(MyGrids[0].total_local_size  * sizeof(int));
+  gpu_products.Fmax = (PRODFLOAT *)malloc(MyGrids[0].total_local_size  * sizeof(PRODFLOAT));
+  
+  // Check if memory allocation on CPU is successful
+  if (gpu_products.Rmax == NULL || gpu_products.Fmax == NULL) 
+  {
+    printf("ERROR: Memory allocation on CPU failed!\n");
+    return -1;
+  }
+
+  // Perform memory allocation using OpenMP: gpu_products
+  #pragma omp target enter data map(alloc: gpu_products,                                     \
+                                           gpu_products.Rmax[0:MyGrids[0].total_local_size], \
+                                           gpu_products.Fmax[0:MyGrids[0].total_local_size]) device(devID)
+
+  // Now use omp_target_is_present to check if data is present on the GPU
+  if (!omp_target_is_present(gpu_products.Rmax, devID) || !omp_target_is_present(gpu_products.Fmax, devID)) 
+  {
+    printf("ERROR: Memory for 'products' is not present on the device!\n");
+    return -1;
+  } else {
+    printf("\n\t GPU %d products memory successfully allocated and present on the device.\n", devID);
+  }
+
+#endif // end defined(FULL_GPU_OMP) 
+  
   /* sets pointers to the allocated memory */
   products = (product_data *)main_memory;
   count_memory = MyGrids[0].total_local_size * sizeof(product_data);
-  ALIGN_MEMORY_BLOCK(count_memory);
-  for (igrid = 0; igrid < Ngrids; igrid++)
-  {
-    kdensity[igrid] = (double *)(main_memory + count_memory);
-    count_memory += MyGrids[igrid].total_local_size_fft * sizeof(double);
-    ALIGN_MEMORY_BLOCK(count_memory);
-  }
+  ALIGN_MEMORY_BLOCK( count_memory );
+
+  for (igrid=0; igrid<Ngrids; igrid++)
+    {
+      kdensity[igrid] = (double *)(main_memory + count_memory);
+      count_memory += MyGrids[igrid].total_local_size_fft * sizeof(double);
+      ALIGN_MEMORY_BLOCK( count_memory );
+    }
 #ifdef TWO_LPT
   kvector_2LPT = (double *)(main_memory + count_memory);
   count_memory += MyGrids[0].total_local_size_fft * sizeof(double);
-  ALIGN_MEMORY_BLOCK(count_memory);
+  ALIGN_MEMORY_BLOCK( count_memory );
   source_2LPT = kvector_2LPT;
 #ifdef THREE_LPT
   kvector_3LPT_1 = (double *)(main_memory + count_memory);
   count_memory += MyGrids[0].total_local_size_fft * sizeof(double);
-  ALIGN_MEMORY_BLOCK(count_memory);
+  ALIGN_MEMORY_BLOCK( count_memory );
   kvector_3LPT_2 = (double *)(main_memory + count_memory);
   count_memory += MyGrids[0].total_local_size_fft * sizeof(double);
-  ALIGN_MEMORY_BLOCK(count_memory);
+  ALIGN_MEMORY_BLOCK( count_memory );
   source_3LPT_1 = kvector_3LPT_1;
   source_3LPT_2 = kvector_3LPT_2;
 #endif
 #endif
-  for (igrid = 0; igrid < Ngrids; igrid++)
-  {
-    for (i = 0; i < 6; i++)
+
+  second_derivatives = (double *)(main_memory + count_memory);
+  size_t count_second_derivatives = 0;
+  for (igrid=0; igrid<Ngrids; igrid++)
     {
-      second_derivatives[igrid][i] = (double *)(main_memory + count_memory);
-      count_memory += MyGrids[igrid].total_local_size * sizeof(double);
-      ALIGN_MEMORY_BLOCK(count_memory);
+      for (i=0; i<6; i++)
+	{
+	  count_memory += MyGrids[igrid].total_local_size * sizeof(double);	  
+	  ALIGN_MEMORY_BLOCK( count_memory );
+	  count_second_derivatives += MyGrids[igrid].total_local_size;
+	}
+
+      for (i=0; i<3; i++)
+	{
+	  first_derivatives[igrid][i] = GET_P_SECOND_DERIVATIVES(igrid, i, 0);
+	}
+      density[igrid] = GET_P_SECOND_DERIVATIVES(igrid, 0, 0);
     }
-    for (i = 0; i < 3; i++)
-      first_derivatives[igrid][i] = second_derivatives[igrid][i];
-    density[igrid] = second_derivatives[igrid][0];
+
+#if defined(GPU_OMP_FULL)
+  
+  // Map the 2D part of the second_derivatives array
+  /* #pragma omp target enter data map(alloc: second_derivatives[0:Ngrids][0:6]) device(devID) */
+  #pragma omp target enter data map(alloc: second_derivatives[0: count_second_derivatives]) device(devID)
+
+  // Check if the 2D array part is present on the GPU
+  if (!omp_target_is_present(second_derivatives, devID)) 
+  {
+    printf("ERROR: second_derivatives is not present on the device!\n");
+    return -1;
   }
-  //  for (igrid=0; igrid<Ngrids; igrid++)
-  //    {
-  //      seedtable[igrid] = (unsigned int*)(main_memory + count_memory);
-  //      count_memory += MyGrids[igrid].GSglobal[_x_] * MyGrids[igrid].GSglobal[_y_] * sizeof(unsigned int);
-  //    }
-  //
+
+#endif
+
+//  for (igrid=0; igrid<Ngrids; igrid++)
+//    {
+//      seedtable[igrid] = (unsigned int*)(main_memory + count_memory);
+//      count_memory += MyGrids[igrid].GSglobal[_x_] * MyGrids[igrid].GSglobal[_y_] * sizeof(unsigned int);
+//    }
+//
   /* allocates fft vectors */
-  for (igrid = 0; igrid < Ngrids; igrid++)
-  {
-    rvector_fft[igrid] = pfft_alloc_real(MyGrids[igrid].total_local_size_fft);
-    cvector_fft[igrid] = pfft_alloc_complex(MyGrids[igrid].total_local_size_fft / 2);
-    // printf("Task %d has got alignment for grid %d [ %llu %llu %llu  -  %llu %llu %llu ]\n",
-    // ThisTask, igrid, (unsigned long long int)rvector_fft[igrid] % 256, (unsigned long long int)rvector_fft[igrid] % 128, (unsigned long long int)rvector_fft[igrid] % 64,
-    //(unsigned long long int)cvector_fft[igrid] % 256, (unsigned long long int)cvector_fft[igrid] % 128, (unsigned long long int)cvector_fft[igrid] % 64);
-
-    if (rvector_fft[igrid] == 0x0 || cvector_fft[igrid] == 0x0)
+  for (igrid=0; igrid<Ngrids; igrid++)
     {
-      printf("ERROR on taks %d: I cannot allocate memory for fft vectors\n", ThisTask);
-      fflush(stdout);
-      return 1;
-    }
-  }
+      rvector_fft[igrid] = (double*)malloc(MyGrids[igrid].total_local_size*sizeof(double));
+      cvector_fft[igrid] = (struct my_double_complex*)malloc(cvector_size * sizeof(struct my_double_complex));
+      //printf("Task %d has got alignment for grid %d [ %llu %llu %llu  -  %llu %llu %llu ]\n", 
+    //ThisTask, igrid, (unsigned long long int)rvector_fft[igrid] % 256, (unsigned long long int)rvector_fft[igrid] % 128, (unsigned long long int)rvector_fft[igrid] % 64,
+    //(unsigned long long int)cvector_fft[igrid] % 256, (unsigned long long int)cvector_fft[igrid] % 128, (unsigned long long int)cvector_fft[igrid] % 64);
+    
 
+      if (rvector_fft[igrid] == 0x0 || cvector_fft[igrid] == 0x0)
+	{
+	  printf("ERROR on taks %d: I cannot allocate memory for fft vectors\n", ThisTask); 
+	  fflush(stdout);
+	  return 1;
+	}
+    
+     #ifdef GPU_OMP_FULL
+     #pragma omp target enter data map(alloc:cvector_fft[igrid][0:cvector_size], rvector_fft[igrid][0:MyGrids[igrid].total_local_size]) device(devID)
+
+
+      // Check if the 2D array part is present on the GPU
+      if (!omp_target_is_present(cvector_fft[igrid], devID))
+	{
+	  printf("ERROR: cvector_fft is not present on the device!\n");
+	  return -1;
+	}
+
+      // Check if the 2D array part is present on the GPU
+      if (!omp_target_is_present(rvector_fft[igrid], devID))
+	{
+	  printf("ERROR: rvector_fft is not present on the device!\n");
+	  return -1;
+	}
+     #endif //GPU_OMP_FULL
+    }
+  
   if (!ThisTask)
-    printf("[%s] Memory has been successfully allocated\n", fdate());
+    printf("[%s] Memory has been successfully allocated\n",fdate());
 
 #ifdef VERBOSE
 
-  last = main_memory + memory.first_allocated;
+  last=main_memory+memory.first_allocated;
 #ifndef TWO_LPT
-  bsize = 3 + 3 * Ngrids;
+  bsize=3+3*Ngrids;
 #else
-  bsize = 4 + 3 * Ngrids;
+  bsize=4+3*Ngrids;
 #endif
-  bsize *= 2;
-  bcast = (size_t *)malloc(bsize * sizeof(size_t));
+  bsize*=2;
+  bcast=(size_t*)malloc(bsize*sizeof(size_t));
 
-  n = 0;
-  bcast[n++] = (size_t)((void *)kdensity[0] - (void *)products);
-  for (igrid = 1; igrid < Ngrids; igrid++)
-    bcast[n++] = (size_t)((void *)kdensity[igrid] - (void *)kdensity[igrid - 1]);
+  n=0;
+  bcast[n++]=(size_t)((void*)kdensity[0]-(void*)products);
+  for (igrid=1; igrid<Ngrids; igrid++)
+    bcast[n++]=(size_t)((void*)kdensity[igrid]-(void*)kdensity[igrid-1]);
 #ifdef TWO_LPT
-  bcast[n++] = (size_t)((void *)kvector_2LPT - (void *)second_derivatives[Ngrids - 1][0]);
-  bcast[n++] = (size_t)((void *)seedtable[0] - (void *)kvector_2LPT);
+  /* bcast[n++]=(size_t)((void*)kvector_2LPT-(void*)second_derivatives[Ngrids-1][0]); */
+  bcast[n++]=(size_t)((void*)kvector_2LPT-(void*)GET_P_SECOND_DERIVATIVES(Ngrids-1, 0, 0));
+  /* bcast[n++]=(size_t)((void*)kvector_2LPT-(void*)&second_derivatives[(Ngrids - 1) * (6 * MyGrids[Ngrids - 1].total_local_size)]); */
+  bcast[n++]=(size_t)((void*)seedtable[0]-(void*)kvector_2LPT);
 #else
-  bcast[n++] = (size_t)((void *)seedtable[0] - (void *)second_derivatives[Ngrids - 1][0]);
+  /* bcast[n++]=(size_t)((void*)seedtable[0]-(void*)second_derivatives[Ngrids-1][0]); */
+  bcast[n++]=(size_t)((void*)seedtable[0]-(void*)GET_P_SECOND_DERIVATIVES(Ngrids-1, 0, 0));
+  /* bcast[n++]=(size_t)((void*)seedtable[0]-(void*)&second_derivatives[(Ngrids - 1) * (6 * MyGrids[Ngrids - 1].total_local_size)]); */
 #endif
-  bcast[n++] = (size_t)((void *)second_derivatives[0][0] - (void *)kdensity[Ngrids - 1]);
-  for (igrid = 1; igrid < Ngrids; igrid++)
-    bcast[n++] = (size_t)((void *)second_derivatives[igrid][0] - (void *)second_derivatives[igrid - 1][0]);
+  /* bcast[n++]=(size_t)((void*)second_derivatives[0][0]-(void*)kdensity[Ngrids-1]); */
+  bcast[n++]=(size_t)((void*)GET_P_SECOND_DERIVATIVES(0, 0, 0)-(void*)kdensity[Ngrids-1]);
+  /* bcast[n++]=(size_t)((void*)&second_derivatives[0]-(void*)kdensity[Ngrids-1]); */
+  for (igrid=1; igrid<Ngrids; igrid++)
+    {
+      /* bcast[n++]=(size_t)((void*)second_derivatives[igrid][0]-(void*)second_derivatives[igrid-1][0]); */
+      bcast[n++]=(size_t)((void*)GET_P_SECOND_DERIVATIVES(igrid, 0, 0)-(void*)GET_P_SECOND_DERIVATIVES(igrid - 1, 0, 0));
+      /* bcast[n++]=(size_t)((void*)&second_derivatives[igrid * (6 * MyGrids[igrid].total_local_size)]-(void*)&second_derivatives[(igrid - 1) * (6 * MyGrids[igrid - 1].total_local_size)]); */
+    }
+
   /* for (igrid=1; igrid<Ngrids; igrid++) */
   /*   bcast[n++]=(size_t)((void*)seedtable[igrid]-(void*)seedtable[igrid-1]); */
-  bcast[n++] = 0;
-  bcast[n++] = (size_t)(last - (void *)seedtable[Ngrids - 1]);
-  bcast[n++] = (size_t)(last - (void *)products);
-  bcast[n++] = memory.fft;
+  bcast[n++]=0;
+  bcast[n++]=(size_t)(last-(void*)seedtable[Ngrids-1]);
+  bcast[n++]=(size_t)(last-(void*)products);
+  bcast[n++]=memory.fft;
 
-  bcast[n++] = memory.prods;
-  for (igrid = 0; igrid < Ngrids; igrid++)
-    bcast[n++] = MyGrids[igrid].total_local_size_fft * sizeof(double);
-  for (igrid = 0; igrid < Ngrids; igrid++)
-    bcast[n++] = 6 * MyGrids[igrid].total_local_size * sizeof(double);
+  bcast[n++]=memory.prods;
+  for (igrid=0; igrid<Ngrids; igrid++)
+    bcast[n++]=MyGrids[igrid].total_local_size_fft * sizeof(double);
+  for (igrid=0; igrid<Ngrids; igrid++)
+    bcast[n++]=6*MyGrids[igrid].total_local_size * sizeof(double);
 #ifdef TWO_LPT
 #ifndef THREE_LPT
-  bcast[n++] = MyGrids[0].total_local_size_fft * sizeof(double);
+  bcast[n++]=MyGrids[0].total_local_size_fft * sizeof(double);
 #else
-  bcast[n++] = 3 * MyGrids[0].total_local_size_fft * sizeof(double);
+  bcast[n++]=3*MyGrids[0].total_local_size_fft * sizeof(double);
 #endif
 #endif
-  for (igrid = 0; igrid < Ngrids; igrid++)
-    bcast[n++] = MyGrids[igrid].GSglobal[_x_] * MyGrids[igrid].GSglobal[_y_] * sizeof(unsigned int);
-  bcast[n++] = count_memory;
-  bcast[n++] = memory.all;
+  for (igrid=0; igrid<Ngrids; igrid++)
+    bcast[n++]=MyGrids[igrid].GSglobal[_x_] * MyGrids[igrid].GSglobal[_y_] * sizeof(unsigned int);
+  bcast[n++]=count_memory;
+  bcast[n++]=memory.all;
+
 
   if (!ThisTask)
-  {
-    printf("Map of memory allocations for fmax (in byte):\n");
-    printf("        TASK ");
-    printf("    PRODUCTS");
-    for (igrid = 0; igrid < Ngrids; igrid++)
-      printf("    KDENS G.%d", igrid);
-#ifdef TWO_LPT
-    printf("   KVEC 2LPT ");
-#ifdef THREE_LPT
-    printf("   KVEC 3LPT ");
-#endif
-#endif
-    for (igrid = 0; igrid < Ngrids; igrid++)
-      printf("    DERIV G.%d", igrid);
-    for (igrid = 0; igrid < Ngrids; igrid++)
-      printf("    SEEDS G.%d ", igrid);
-    printf(" MAIN MEMORY ");
-    printf("- FFT VECTORS / REQ. MEMORY\n");
-  }
-
-  for (i = 0; i < NTasks; i++)
-  {
-
-    if (!ThisTask)
     {
-      if (i)
-        s = MPI_Recv((void *)bcast, bsize * sizeof(size_t), MPI_BYTE, i, 0, MPI_COMM_WORLD, &status);
-      printf(" FOUND %5d", i);
-      for (n = 0; n < bsize / 2; n++)
-        printf(" %12zu", bcast[n]);
-      printf("\n");
-      printf(" PRED  %5d", i);
-      for (n = bsize / 2; n < bsize; n++)
-        printf(" %12zu", bcast[n]);
-      printf("\n");
+      printf("Map of memory allocations for fmax (in byte):\n");
+      printf("        TASK ");
+      printf("    PRODUCTS");
+      for (igrid=0; igrid<Ngrids; igrid++)
+	printf("    KDENS G.%d",igrid);
+#ifdef TWO_LPT
+      printf("   KVEC 2LPT ");
+#ifdef THREE_LPT
+      printf("   KVEC 3LPT ");
+#endif
+#endif
+      for (igrid=0; igrid<Ngrids; igrid++)
+	printf("    DERIV G.%d",igrid);
+      for (igrid=0; igrid<Ngrids; igrid++)
+	printf("    SEEDS G.%d ",igrid);
+      printf(" MAIN MEMORY ");
+      printf("- FFT VECTORS / REQ. MEMORY\n");
     }
-    else if (ThisTask == i)
-      s = MPI_Send((void *)bcast, bsize * sizeof(size_t), MPI_BYTE, 0, 0, MPI_COMM_WORLD);
-  }
+
+  for (i=0; i<NTasks; i++)
+    {
+
+      if (!ThisTask)
+	{
+	  if (i)
+	    s=MPI_Recv((void*)bcast, bsize*sizeof(size_t), MPI_BYTE, i, 0, MPI_COMM_WORLD, &status);
+	  printf(" FOUND %5d",i);
+	  for (n=0; n<bsize/2; n++)
+	    printf(" %12zu",bcast[n]);
+	  printf("\n");
+	  printf(" PRED  %5d",i);
+	  for (n=bsize/2; n<bsize; n++)
+	    printf(" %12zu",bcast[n]);
+	  printf("\n");
+	}
+      else if (ThisTask==i)
+	s=MPI_Send((void*)bcast, bsize*sizeof(size_t), MPI_BYTE, 0, 0, MPI_COMM_WORLD);
+
+    }
 #endif
 
   if (!ThisTask)
-  {
-    printf("\n");
-    fflush(stdout);
-  }
-  return 0;
+    {
+      printf("\n");  
+      fflush(stdout);
+    }  return 0;
 }
+
 
 int deallocate_fft_vectors(int ThisGrid)
 {
 
-  pfft_free(cvector_fft[ThisGrid]);
-  pfft_free(rvector_fft[ThisGrid]);
+ #ifdef GPU_OMP_FULL
+ #pragma omp target exit data map(delete:cvector_fft[ThisGrid][cvector_size],rvector_fft[ThisGrid][MyGrids[ThisGrid].total_local_size]) device(devID)
+ #endif //GPU_OMP_FULL
+  
+  free(cvector_fft[ThisGrid]);
+  free(rvector_fft[ThisGrid]);
 
   return 0;
 }

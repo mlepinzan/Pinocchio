@@ -15,12 +15,10 @@
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation; either version 2 of the License, or
  (at your option) any later version.
-
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
-
  You should have received a copy of the GNU General Public License
  along with this program; if not, write to the Free Software
  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -40,8 +38,8 @@
 #define LOGICAL 4
 #define INT3 5
 #define DOUBLE3 6
-#define INT_SKIP_DEF 98 /* this is previously set to the default value */
-#define INT_SKIP 99     /* this is set to 0 if not present in the parameter file */
+#define INT_SKIP_DEF 98   /* this is previously set to the default value */
+#define INT_SKIP 99       /* this is set to 0 if not present in the parameter file */
 #define MAXTAGS 100
 
 int read_parameter_file()
@@ -252,6 +250,11 @@ int read_parameter_file()
 
     strcpy(tag[nt], "UseTransposedFFT");
     addr[nt] = &(params.use_transposed_fft);
+    id[nt++] = LOGICAL;
+
+    /* Parameter to enable GPU-GPU communication in HeFFTe avoiding host overhead */
+    strcpy(tag[nt], "GPUDirect");
+    addr[nt] = &(params.use_gpu_direct);
     id[nt++] = LOGICAL;
 
     strcpy(tag[nt], "MimicOldSeed");

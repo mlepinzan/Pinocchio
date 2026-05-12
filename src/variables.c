@@ -37,12 +37,29 @@ internal_data   internal;
 
 char *main_memory, *wheretoplace_mycat;
 product_data *products, *frag;
+
+
+#if defined(GPU_OMP)
+int hostID;
+int devID;
+gpu_product_data gpu_products, host_products;
+#elif defined(GPU_OMP_FULL)
+int hostID;
+int devID;
+gpu_product_data gpu_products;
+#endif // end GPU flags. We are working directly with the data structure allocated and initilialized withing Pinocchio 
+
 unsigned int **seedtable;  // QUESTO RIMANE?
 unsigned int   *cubes_ordering;
 double **kdensity;
 double **density;
 double ***first_derivatives;
-double ***second_derivatives;
+double *second_derivatives;
+#if defined(GPU_OMP) 
+gpu_second_derivatives_data gpu_second_derivatives;
+#endif // GPU_OMP
+double **VEL_for_displ;
+
 #ifdef TWO_LPT
 double *kvector_2LPT;
 double *source_2LPT;
@@ -58,8 +75,19 @@ smoothing_data Smoothing;
 grid_data *MyGrids;
 int Ngrids;
 
-pfft_complex **cvector_fft;
+/* Declare the new cvector structure */
+struct my_double_complex **cvector_fft;
+long int cvector_size;
+
 double **rvector_fft;
+
+int devID; /* Probably needed */
+
+/* Structure containing informations about heffte options */
+heffte_plan_options options_fft;
+
+/* define inbox and outbox to be initialized in set_one_grid(ThisGrid) function */
+int inbox_low[3], inbox_high[3], outbox_low[3], outbox_high[3];
 
 param_data params={0};
 output_data outputs;
@@ -70,6 +98,10 @@ plcgroup_data *plcgroups;
 #endif
 
 cputime_data cputime={0.0};
+
+#if defined(GPU_OMP) || defined(GPU_OMP_FULL)
+gputime_data gputime;
+#endif // GPU_OMP || GPU_OMP_FULL
 
 int WindowFunctionType;
 
@@ -89,6 +121,33 @@ mf_data mf;
 
 gsl_spline **SPLINE;
 gsl_interp_accel **ACCEL;
+
+#if defined(CUSTOM_INTERPOLATION) || defined(GPU_OMP)
+CubicSpline *host_spline;
+#endif
+
+#if defined(GPU_OMP)
+CubicSpline gpu_spline;
+#elif defined(GPU_OMP_FULL)
+CubicSpline *gpu_spline;
+#endif
+
+#if defined(TABULATED_CT) && !defined(CUSTOM_INTERPOLATION) && !defined(GPU_OMP_FULL)
+gsl_spline ***CT_Spline;
+#elif defined(TABULATED_CT) && (defined(CUSTOM_INTERPOLATION) || defined(GPU_OMP_FULL))
+CubicSpline **CT_Spline;
+#endif
+
+#if defined(TABULATED_CT)
+int    Ncomputations, start, length;
+double *CT_table = 0x0;
+double bin_x;
+double *delta_vector;
+gsl_interp_accel *accel = 0x0;
+FILE *CTtableFilePointer = NULL;
+#endif
+
+
 #if defined(SCALE_DEPENDENT) && defined(ELL_CLASSIC)
 gsl_spline **SPLINE_INVGROW;
 gsl_interp_accel **ACCEL_INVGROW;

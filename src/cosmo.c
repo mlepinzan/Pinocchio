@@ -15,12 +15,10 @@
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation; either version 2 of the License, or
  (at your option) any later version.
-
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
-
  You should have received a copy of the GNU General Public License
  along with this program; if not, write to the Free Software
  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -30,6 +28,7 @@
 #include "def_splines.h"
 #include <gsl/gsl_interp2d.h>
 #include <gsl/gsl_spline2d.h>
+#include "cubic_spline_interpolation.h"
 
 /* Wrapper around gsl_spline_init that checks strict monotonicity of x
    and prints a diagnostic message identifying the offending spline. */
@@ -493,6 +492,61 @@ int initialize_cosmology()
       grow32[i + j * NBINS] = log10(grow32[i + j * NBINS]);
     }
 
+  #if defined(CUSTOM_INTERPOLATION) || defined(GPU_OMP)
+
+  /* host custom spline allocation */
+  host_spline = custom_cubic_spline_alloc(NBINS);
+ 
+  /* host custom spline initialization */
+  custom_cubic_spline_init(host_spline, grow1, scalef, NBINS);
+
+#elif defined(GPU_OMP_FULL)
+  
+  #pragma omp target enter data map(alloc: grow1[0:NBINS * NkBINS], \
+                                           scalef[0:NBINS]) device(devID)
+
+  /* CPU custom spline allocation */
+  gpu_spline = custom_cubic_spline_alloc(NBINS);
+
+  #pragma omp target enter data map(alloc: gpu_spline[0:1],                  \
+                                           gpu_spline->d2y_data[0:NBINS],    \
+                                           gpu_spline->coeff_a[0:NBINS - 1], \
+                                           gpu_spline->coeff_b[0:NBINS - 1], \
+                                           gpu_spline->coeff_c[0:NBINS - 1], \
+                                           gpu_spline->coeff_d[0:NBINS - 1]) device(devID)
+
+  
+  if (!omp_target_is_present(gpu_spline->d2y_data, devID) ||
+      !omp_target_is_present(gpu_spline->coeff_a, devID)  ||
+      !omp_target_is_present(gpu_spline->coeff_b, devID)  ||
+      !omp_target_is_present(gpu_spline->coeff_c, devID)  ||
+      !omp_target_is_present(gpu_spline->coeff_d, devID)  ||
+      !omp_target_is_present(grow1,  devID)               ||
+      !omp_target_is_present(scalef, devID))
+      {
+        printf("\n\t ERROR on task %d: GPU spline memory allocation failed \n", ThisTask);
+        fflush(stdout);
+        return 2;
+      }
+
+  if (ThisTask == 0) {
+    printf("\n\t ############################################ \n");
+    printf("\n\t FULL GPU spline memory allocation successful \n");
+    printf("\n\t ############################################ \n");
+    fflush(stdout);
+  }
+  
+   #pragma omp target update to(grow1[0:NBINS * NkBINS], \
+                               scalef[0:NBINS]) device(devID)
+
+  custom_cubic_spline_init(gpu_spline, grow1, scalef, NBINS);
+   
+  #else
+
+  gsl_spline_init(SPLINE[SP_INVGROW], grow1, scalef, NBINS);
+  
+  #endif // defined(CUSTOM_INTERPOLATION) || defined(GPU_OMP) || defined(FULL_GPU_OMP)
+
   /* initialization of spline interpolations of time-dependent quantities */
   if (checked_spline_init(SPLINE[SP_TIME], scalef, cosmtime, NBINS, "SP_TIME") ||
       checked_spline_init(SPLINE[SP_INVTIME], cosmtime, scalef, NBINS, "SP_INVTIME") ||
@@ -546,6 +600,13 @@ int initialize_cosmology()
   free(cosmtime);
   free(scalef);
 
+#if defined(GPU_OMP_FULL)
+
+#pragma omp target exit data map(delete: grow1[0:NBINS * NkBINS],	\
+				         scalef[0:NBINS]) device(devID)
+
+#endif // GPU_OMP_FULL
+  
   /* normalization of power spectrum */
   if (normalize_PowerSpectrum())
     return 1;
@@ -1749,7 +1810,6 @@ int read_Pk_table_from_CAMB(double *scalef, double *grow1, double *grow2, double
   gsl_spline2d_free(AnotherSpline);
   gsl_interp_accel_free(yacc);
   gsl_interp_accel_free(xacc);
-
   free(lingrow);
   free(CAMBScalefac);
   free(Pk);
@@ -2171,10 +2231,28 @@ double InverseGrowingMode(double D, int ismooth)
 #ifdef SCALE_DEPENDENT
   return 1. / pow(10., my_spline_eval(SPLINE_INVGROW[ismooth], log10(D), ACCEL_INVGROW[ismooth])) - 1.;
 #else
-  return 1. / pow(10., my_spline_eval(SPLINE[SP_INVGROW], log10(D), ACCEL[SP_INVGROW])) - 1.;
+  
+  #if defined(CUSTOM_INTERPOLATION) && !defined(GPU_OMP)
+
+      return 1./pow(10.0, custom_cubic_spline_eval(host_spline, log10(D))) -1;
+  
+  #elif defined(GPU_OMP) && !defined(GPU_OMP_FULL)
+      
+      return ((1.0 / pow(10.0, custom_cubic_spline_eval(&gpu_spline, log10(D)))) -1);
+    
+  #elif defined(GPU_OMP_FULL)
+
+      return ((1.0 / pow(10.0, custom_cubic_spline_eval(gpu_spline, log10(D), NBINS))) - 1);
+
+  #elif !defined(CUSTOM_INTERPOLATION) && !defined(GPU_OMP) && !defined(GPU_OMP_FULL)
+  
+     return 1./pow(10.,my_spline_eval(SPLINE[SP_INVGROW], log10(D), ACCEL[SP_INVGROW])) -1.;
+
+  #endif // CUSTOM_INTERPOLATION && GPU_OMP 
+
 #endif
 }
-#endif
+#endif  // ELL_CLASSIC
 
 double CosmicTime(double z)
 {
