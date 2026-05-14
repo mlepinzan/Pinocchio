@@ -1,0 +1,642 @@
+[Wed May 13 2026 16:24:35] This is pinocchio V5.1, running on 4 MPI tasks
+
+Using 3LPT displacements
+Performing PLC construction
+Radiation is not included in the Friedmann equations
+Ellipsoidal collapse will be computed as in Monaco (1995)
+Using v5 fragmentation
+Writing of snapshots enabled
+IDs in the snapshot will be long long
+
+Reading parameters from file parameter_file
+Flag for this run: CPU_run_final
+
+PARAMETER VALUES from file parameter_file:
+Omega0                      0.250000
+OmegaLambda                 0.750000
+OmegaBaryon                 0.044000
+DE EoS parameters           -1.000000 0.000000
+Hubble100                   0.700000
+Sigma8                      0.800000
+PrimordialIndex             0.960000
+RandomSeed                  486604
+PairedIC                    0
+FixedIC                     0
+OutputList                  outputs
+Number of outputs           1
+Output redshifts            0.000000 
+GridSize                    256 256 256
+BoxSize (true Mpc)          365.714286
+BoxSize (Mpc/h)             256.000000
+Particle Mass (true Msun)   9.9125e+10
+Particle Mass (Msun/h)      6.93875e+10
+Inter-part dist (true Mpc)  1.428571
+Inter-part dist (Mpc/h)     1.000000
+MinHaloMass (particles)     10
+MinHaloMass (Msun/h)        6.93875e+11
+BoundaryLayerFactor         3.000000
+MaxMem per task (Mb)        60768
+MaxMem per particle (b)     350.000000
+PredPeakFactor              0.800000
+CatalogInAscii              1
+NumFiles                    1
+DoNotWriteCatalogs          0
+DoNotWriteHistories         0
+WriteTimelessSnapshot       0
+OutputInH100                1
+DumpProducts                0
+ReadProductsFromDumps       0
+ExitIfExtraParticles        1
+Using Watson et al. (2013) for the analytic mass function
+
+
+GENIC parameters:
+InputSpectrum_UnitLength_in_cm 0.000000
+FileWithInputSpectrum          no
+WDM_PartMass_in_kev            0.000000
+
+Power spectrum will be given by the Einsenstein & Hu fit
+Normalization constant for the power spectrum: 2.03146e+07
+Rank 2: total local size fft 4227072; total local size fft / 2 2113536, size complex 2113536
+Rank 3: total local size fft 4227072; total local size fft / 2 2113536, size complex 2113536
+Rank 1: total local size fft 4227072; total local size fft / 2 2113536, size complex 2113536
+Rank 0: total local size fft 4227072; total local size fft / 2 2113536, size complex 2113536
+
+SMOOTHING RADII
+Min variance: 0.07896112.6, max variance: 10.47745512.6, number of smoothing radii: 9
+            1)  Radius= 20.635922, Variance=  0.078961
+            2)  Radius= 13.996056, Variance=  0.157548
+            3)  Radius=  9.026099, Variance=  0.314349
+            4)  Radius=  5.465945, Variance=  0.627210
+            5)  Radius=  3.058354, Variance=  1.251448
+            6)  Radius=  1.548258, Variance=  2.496966
+            7)  Radius=  0.689079, Variance=  4.982102
+            8)  Radius=  0.258729, Variance=  9.940601
+            9)  Radius=  0.000000, Variance= 10.477455
+
+The Past Light Cone will be reconstructed from z=0.300000 to z=0.000000
+Cone data have been decided by the code
+Past Light Cone will be centred on point [266.613909,295.560683,99.536830] (true Mpc)
+The cone vertex will be pointed toward [-0.256671,0.372140,-0.891982]
+It will have an aperture of 30.000000 degrees
+The comoving distance at the starting redshift, z=0.300000, is: 1234.202624 Mpc
+The comoving distance at the stopping redshift, z=0.000000, is: 0.000000 Mpc
+The reconstruction will be done for 0.000000 < z < 0.300000
+The corresponding F values are: Fstart=1.300000, Fstop=1.000000
+The box will be replicated 46 times to construct the PLC
+   Replication  0: shift (-2, 0,-3), from F=1.420000 to F=1.240000
+   Replication  1: shift (-2, 0,-2), from F=1.350000 to F=1.180000
+   Replication  2: shift (-2, 1,-3), from F=1.420000 to F=1.250000
+   Replication  3: shift (-2, 1,-2), from F=1.360000 to F=1.180000
+   Replication  4: shift (-2, 2,-3), from F=1.460000 to F=1.270000
+   Replication  5: shift (-2, 2,-2), from F=1.400000 to F=1.210000
+   Replication  6: shift (-2, 3,-2), from F=1.460000 to F=1.270000
+   Replication  7: shift (-1, 0,-4), from F=1.450000 to F=1.290000
+   Replication  8: shift (-1, 0,-3), from F=1.360000 to F=1.200000
+   Replication  9: shift (-1, 0,-2), from F=1.280000 to F=1.120000
+   Replication 10: shift (-1, 0,-1), from F=1.220000 to F=1.060000
+   Replication 11: shift (-1, 1,-4), from F=1.460000 to F=1.290000
+   Replication 12: shift (-1, 1,-3), from F=1.370000 to F=1.200000
+   Replication 13: shift (-1, 1,-2), from F=1.290000 to F=1.120000
+   Replication 14: shift (-1, 1,-1), from F=1.230000 to F=1.060000
+   Replication 15: shift (-1, 2,-3), from F=1.410000 to F=1.230000
+   Replication 16: shift (-1, 2,-2), from F=1.340000 to F=1.150000
+   Replication 17: shift (-1, 2,-1), from F=1.290000 to F=1.110000
+   Replication 18: shift (-1, 3,-3), from F=1.470000 to F=1.280000
+   Replication 19: shift (-1, 3,-2), from F=1.410000 to F=1.220000
+   Replication 20: shift ( 0, 0,-4), from F=1.420000 to F=1.290000
+   Replication 21: shift ( 0, 0,-3), from F=1.330000 to F=1.190000
+   Replication 22: shift ( 0, 0,-2), from F=1.240000 to F=1.100000
+   Replication 23: shift ( 0, 0,-1), from F=1.160000 to F=1.010000
+   Replication 24: shift ( 0, 0, 0), from F=1.130000 to F=1.000000
+   Replication 25: shift ( 0, 1,-4), from F=1.430000 to F=1.290000
+   Replication 26: shift ( 0, 1,-3), from F=1.340000 to F=1.190000
+   Replication 27: shift ( 0, 1,-2), from F=1.250000 to F=1.100000
+   Replication 28: shift ( 0, 1,-1), from F=1.180000 to F=1.020000
+   Replication 29: shift ( 0, 1, 0), from F=1.150000 to F=1.010000
+   Replication 30: shift ( 0, 2,-3), from F=1.380000 to F=1.220000
+   Replication 31: shift ( 0, 2,-2), from F=1.310000 to F=1.140000
+   Replication 32: shift ( 0, 2,-1), from F=1.250000 to F=1.090000
+   Replication 33: shift ( 0, 3,-3), from F=1.450000 to F=1.270000
+   Replication 34: shift ( 0, 3,-2), from F=1.380000 to F=1.210000
+   Replication 35: shift ( 1, 0,-4), from F=1.440000 to F=1.290000
+   Replication 36: shift ( 1, 0,-3), from F=1.340000 to F=1.190000
+   Replication 37: shift ( 1, 0,-2), from F=1.260000 to F=1.100000
+   Replication 38: shift ( 1, 1,-4), from F=1.440000 to F=1.290000
+   Replication 39: shift ( 1, 1,-3), from F=1.350000 to F=1.190000
+   Replication 40: shift ( 1, 1,-2), from F=1.270000 to F=1.100000
+   Replication 41: shift ( 1, 1,-1), from F=1.200000 to F=1.030000
+   Replication 42: shift ( 1, 2,-3), from F=1.400000 to F=1.220000
+   Replication 43: shift ( 1, 2,-2), from F=1.320000 to F=1.140000
+   Replication 44: shift ( 1, 3,-3), from F=1.460000 to F=1.270000
+   Replication 45: shift ( 1, 3,-2), from F=1.390000 to F=1.220000
+Task 0 will use plc.Nmax=559240
+The halo number density will be output in 6 redshift bins
+
+
+FRAGMENTATION:
+Reference number of particles:         4194304
+Requested bytes per particle:          350
+Number of sub-boxes per dimension:     4 1 1
+Periodic boundary conditions:          0 1 1
+Core 0 will work on a grid:            164 256 256
+The resolved box will be:              64 256 256
+Boundary layer:                        50 0 0
+Boundary layer factor:                 3.000000
+Number of total particles for core 0:  10747904
+Number of good particles for core 0:   4194304
+Particles that core 0 will allocate:   4742773
+Allowed overhead for boundary layer:   1.130765
+Largest halo expected in this box at z=0.000000: 1.877843e+15 Msun
+   its Lagrangian size: 23.624600 Mpc ( 16.54 grid points)
+   this requires a boundary layer of  49.61 grid points 
+
+The mass function will be computed from Log M=11.996133 to Log M=15.423659 (69 bins)
+
+
+Map of memory usage for all MPI tasks
+Task N.   FFT domain      mem(MB) overhead   products   fields     ffts     fmax  frag pr.  groups fragment  total bytes per particle
+     0    64- 256- 256      1400     1.1        112.0     80.2     16.1    208.4    126.6     63.0    350.0    350.0
+     1    64- 256- 256      1400     1.1        112.0     80.2     16.1    208.4    126.6     63.0    350.0    350.0
+     2    64- 256- 256      1400     1.1        112.0     80.2     16.1    208.4    126.6     63.0    350.0    350.0
+     3    64- 256- 256      1400     1.1        112.0     80.2     16.1    208.4    126.6     63.0    350.0    350.0
+
+Task 1: Inbox low: 64, 0, 0
+, Inbox high: 127, 255, 255
+Task 2: Inbox low: 128, 0, 0
+, Inbox high: 191, 255, 255
+Task 3: Inbox low: 192, 0, 0
+, Inbox high: 255, 255, 255
+[Wed May 13 2026 16:24:35] Memory has been successfully allocated
+
+[Wed May 13 2026 16:24:35] Computing fft plans
+Task 0: Inbox low: 0, 0, 0
+, Inbox high: 63, 255, 255
+Task 1: inbox size 4194304; outbox size 2113536
+Task 2: inbox size 4194304; outbox size 2113536
+Task 0: inbox size 4194304; outbox size 2113536
+[Wed May 13 2026 16:24:35] fft plans done
+Task 3: inbox size 4194304; outbox size 2113536
+[Wed May 13 2026 16:24:35] Generating density in Fourier space
+[Wed May 13 2026 16:24:37] Done generating density in Fourier space, cputime = 1.621336 s
+[Wed May 13 2026 16:24:37] initialization done, initialization cpu time =       1.866675
+		 set subboxes time =       0.000000
+		 set plc time =       0.000000
+		 memory allocation time =       0.000000
+		 fft initialization time =       0.000000
+		 density generation time =       1.621336
+[Wed May 13 2026 16:24:37] First part: computation of collapse times
+
+[Wed May 13 2026 16:24:37] Starting smoothing radius 1 of 9 (R= 20.63592, sigma=  0.28100)
+[Wed May 13 2026 16:24:37] Computing second derivatives
+[Wed May 13 2026 16:24:37] Computing 2nd derivative: 1
+[Wed May 13 2026 16:24:37] compute_derivative: starting fft
+[Wed May 13 2026 16:24:37] compute_derivative: done fft, cpu time = 0.172074
+[Wed May 13 2026 16:24:37] Computing 2nd derivative: 4
+[Wed May 13 2026 16:24:37] compute_derivative: starting fft
+[Wed May 13 2026 16:24:37] compute_derivative: done fft, cpu time = 0.156088
+[Wed May 13 2026 16:24:37] Computing 2nd derivative: 5
+[Wed May 13 2026 16:24:37] compute_derivative: starting fft
+[Wed May 13 2026 16:24:37] compute_derivative: done fft, cpu time = 0.156291
+[Wed May 13 2026 16:24:37] Computing 2nd derivative: 2
+[Wed May 13 2026 16:24:37] compute_derivative: starting fft
+[Wed May 13 2026 16:24:37] compute_derivative: done fft, cpu time = 0.156960
+[Wed May 13 2026 16:24:37] Computing 2nd derivative: 6
+[Wed May 13 2026 16:24:37] compute_derivative: starting fft
+[Wed May 13 2026 16:24:38] compute_derivative: done fft, cpu time = 0.157311
+[Wed May 13 2026 16:24:38] Computing 2nd derivative: 3
+[Wed May 13 2026 16:24:38] compute_derivative: starting fft
+[Wed May 13 2026 16:24:38] compute_derivative: done fft, cpu time = 0.155928
+[Wed May 13 2026 16:24:38] Done second derivatives, cpu time = 1.187127 s
+[Wed May 13 2026 16:24:38] Computing collapse times
+[Wed May 13 2026 16:24:39] Done computing collapse times, cpu time = 3.053911 s
+[Wed May 13 2026 16:24:39] Completed, R=20.636, expected sigma:  0.2810, computed sigma:  0.2584, cpu time = 2.073971 s
+
+[Wed May 13 2026 16:24:39] Starting smoothing radius 2 of 9 (R= 13.99606, sigma=  0.39692)
+[Wed May 13 2026 16:24:39] Computing second derivatives
+[Wed May 13 2026 16:24:39] Computing 2nd derivative: 1
+[Wed May 13 2026 16:24:39] compute_derivative: starting fft
+[Wed May 13 2026 16:24:39] compute_derivative: done fft, cpu time = 0.159104
+[Wed May 13 2026 16:24:39] Computing 2nd derivative: 4
+[Wed May 13 2026 16:24:39] compute_derivative: starting fft
+[Wed May 13 2026 16:24:39] compute_derivative: done fft, cpu time = 0.157811
+[Wed May 13 2026 16:24:39] Computing 2nd derivative: 5
+[Wed May 13 2026 16:24:39] compute_derivative: starting fft
+[Wed May 13 2026 16:24:39] compute_derivative: done fft, cpu time = 0.158153
+[Wed May 13 2026 16:24:39] Computing 2nd derivative: 2
+[Wed May 13 2026 16:24:39] compute_derivative: starting fft
+[Wed May 13 2026 16:24:39] compute_derivative: done fft, cpu time = 0.158699
+[Wed May 13 2026 16:24:39] Computing 2nd derivative: 6
+[Wed May 13 2026 16:24:39] compute_derivative: starting fft
+[Wed May 13 2026 16:24:40] compute_derivative: done fft, cpu time = 0.159155
+[Wed May 13 2026 16:24:40] Computing 2nd derivative: 3
+[Wed May 13 2026 16:24:40] compute_derivative: starting fft
+[Wed May 13 2026 16:24:40] compute_derivative: done fft, cpu time = 0.158607
+[Wed May 13 2026 16:24:40] Done second derivatives, cpu time = 1.179377 s
+[Wed May 13 2026 16:24:40] Computing collapse times
+[Wed May 13 2026 16:24:41] Done computing collapse times, cpu time = 5.120160 s
+[Wed May 13 2026 16:24:41] Completed, R=13.996, expected sigma:  0.3969, computed sigma:  0.3811, cpu time = 1.928557 s
+
+[Wed May 13 2026 16:24:41] Starting smoothing radius 3 of 9 (R=  9.02610, sigma=  0.56067)
+[Wed May 13 2026 16:24:41] Computing second derivatives
+[Wed May 13 2026 16:24:41] Computing 2nd derivative: 1
+[Wed May 13 2026 16:24:41] compute_derivative: starting fft
+[Wed May 13 2026 16:24:41] compute_derivative: done fft, cpu time = 0.162649
+[Wed May 13 2026 16:24:41] Computing 2nd derivative: 4
+[Wed May 13 2026 16:24:41] compute_derivative: starting fft
+[Wed May 13 2026 16:24:41] compute_derivative: done fft, cpu time = 0.160158
+[Wed May 13 2026 16:24:41] Computing 2nd derivative: 5
+[Wed May 13 2026 16:24:41] compute_derivative: starting fft
+[Wed May 13 2026 16:24:41] compute_derivative: done fft, cpu time = 0.160946
+[Wed May 13 2026 16:24:41] Computing 2nd derivative: 2
+[Wed May 13 2026 16:24:41] compute_derivative: starting fft
+[Wed May 13 2026 16:24:41] compute_derivative: done fft, cpu time = 0.160524
+[Wed May 13 2026 16:24:41] Computing 2nd derivative: 6
+[Wed May 13 2026 16:24:41] compute_derivative: starting fft
+[Wed May 13 2026 16:24:42] compute_derivative: done fft, cpu time = 0.161339
+[Wed May 13 2026 16:24:42] Computing 2nd derivative: 3
+[Wed May 13 2026 16:24:42] compute_derivative: starting fft
+[Wed May 13 2026 16:24:42] compute_derivative: done fft, cpu time = 0.164953
+[Wed May 13 2026 16:24:42] Done second derivatives, cpu time = 1.202253 s
+[Wed May 13 2026 16:24:42] Computing collapse times
+[Wed May 13 2026 16:24:43] Done computing collapse times, cpu time = 7.071607 s
+[Wed May 13 2026 16:24:43] Completed, R= 9.026, expected sigma:  0.5607, computed sigma:  0.5481, cpu time = 1.954937 s
+
+[Wed May 13 2026 16:24:43] Starting smoothing radius 4 of 9 (R=  5.46594, sigma=  0.79197)
+[Wed May 13 2026 16:24:43] Computing second derivatives
+[Wed May 13 2026 16:24:43] Computing 2nd derivative: 1
+[Wed May 13 2026 16:24:43] compute_derivative: starting fft
+[Wed May 13 2026 16:24:43] compute_derivative: done fft, cpu time = 0.163796
+[Wed May 13 2026 16:24:43] Computing 2nd derivative: 4
+[Wed May 13 2026 16:24:43] compute_derivative: starting fft
+[Wed May 13 2026 16:24:43] compute_derivative: done fft, cpu time = 0.162793
+[Wed May 13 2026 16:24:43] Computing 2nd derivative: 5
+[Wed May 13 2026 16:24:43] compute_derivative: starting fft
+[Wed May 13 2026 16:24:43] compute_derivative: done fft, cpu time = 0.162904
+[Wed May 13 2026 16:24:43] Computing 2nd derivative: 2
+[Wed May 13 2026 16:24:43] compute_derivative: starting fft
+[Wed May 13 2026 16:24:43] compute_derivative: done fft, cpu time = 0.162560
+[Wed May 13 2026 16:24:43] Computing 2nd derivative: 6
+[Wed May 13 2026 16:24:43] compute_derivative: starting fft
+[Wed May 13 2026 16:24:44] compute_derivative: done fft, cpu time = 0.161496
+[Wed May 13 2026 16:24:44] Computing 2nd derivative: 3
+[Wed May 13 2026 16:24:44] compute_derivative: starting fft
+[Wed May 13 2026 16:24:44] compute_derivative: done fft, cpu time = 0.162359
+[Wed May 13 2026 16:24:44] Done second derivatives, cpu time = 1.206940 s
+[Wed May 13 2026 16:24:44] Computing collapse times
+[Wed May 13 2026 16:24:44] Done computing collapse times, cpu time = 9.031243 s
+[Wed May 13 2026 16:24:44] Completed, R= 5.466, expected sigma:  0.7920, computed sigma:  0.7803, cpu time = 1.976656 s
+
+[Wed May 13 2026 16:24:44] Starting smoothing radius 5 of 9 (R=  3.05835, sigma=  1.11868)
+[Wed May 13 2026 16:24:44] Computing second derivatives
+[Wed May 13 2026 16:24:44] Computing 2nd derivative: 1
+[Wed May 13 2026 16:24:45] compute_derivative: starting fft
+[Wed May 13 2026 16:24:45] compute_derivative: done fft, cpu time = 0.164029
+[Wed May 13 2026 16:24:45] Computing 2nd derivative: 4
+[Wed May 13 2026 16:24:45] compute_derivative: starting fft
+[Wed May 13 2026 16:24:45] compute_derivative: done fft, cpu time = 0.161156
+[Wed May 13 2026 16:24:45] Computing 2nd derivative: 5
+[Wed May 13 2026 16:24:45] compute_derivative: starting fft
+[Wed May 13 2026 16:24:45] compute_derivative: done fft, cpu time = 0.161237
+[Wed May 13 2026 16:24:45] Computing 2nd derivative: 2
+[Wed May 13 2026 16:24:45] compute_derivative: starting fft
+[Wed May 13 2026 16:24:45] compute_derivative: done fft, cpu time = 0.160792
+[Wed May 13 2026 16:24:45] Computing 2nd derivative: 6
+[Wed May 13 2026 16:24:45] compute_derivative: starting fft
+[Wed May 13 2026 16:24:45] compute_derivative: done fft, cpu time = 0.160781
+[Wed May 13 2026 16:24:45] Computing 2nd derivative: 3
+[Wed May 13 2026 16:24:46] compute_derivative: starting fft
+[Wed May 13 2026 16:24:46] compute_derivative: done fft, cpu time = 0.162100
+[Wed May 13 2026 16:24:46] Done second derivatives, cpu time = 1.201801 s
+[Wed May 13 2026 16:24:46] Computing collapse times
+[Wed May 13 2026 16:24:46] Done computing collapse times, cpu time = 11.002770 s
+[Wed May 13 2026 16:24:46] Completed, R= 3.058, expected sigma:  1.1187, computed sigma:  1.1082, cpu time = 2.007059 s
+
+[Wed May 13 2026 16:24:46] Starting smoothing radius 6 of 9 (R=  1.54826, sigma=  1.58018)
+[Wed May 13 2026 16:24:46] Computing second derivatives
+[Wed May 13 2026 16:24:46] Computing 2nd derivative: 1
+[Wed May 13 2026 16:24:47] compute_derivative: starting fft
+[Wed May 13 2026 16:24:47] compute_derivative: done fft, cpu time = 0.161886
+[Wed May 13 2026 16:24:47] Computing 2nd derivative: 4
+[Wed May 13 2026 16:24:47] compute_derivative: starting fft
+[Wed May 13 2026 16:24:47] compute_derivative: done fft, cpu time = 0.162361
+[Wed May 13 2026 16:24:47] Computing 2nd derivative: 5
+[Wed May 13 2026 16:24:47] compute_derivative: starting fft
+[Wed May 13 2026 16:24:47] compute_derivative: done fft, cpu time = 0.163275
+[Wed May 13 2026 16:24:47] Computing 2nd derivative: 2
+[Wed May 13 2026 16:24:47] compute_derivative: starting fft
+[Wed May 13 2026 16:24:47] compute_derivative: done fft, cpu time = 0.162334
+[Wed May 13 2026 16:24:47] Computing 2nd derivative: 6
+[Wed May 13 2026 16:24:47] compute_derivative: starting fft
+[Wed May 13 2026 16:24:47] compute_derivative: done fft, cpu time = 0.161407
+[Wed May 13 2026 16:24:47] Computing 2nd derivative: 3
+[Wed May 13 2026 16:24:48] compute_derivative: starting fft
+[Wed May 13 2026 16:24:48] compute_derivative: done fft, cpu time = 0.162843
+[Wed May 13 2026 16:24:48] Done second derivatives, cpu time = 1.205543 s
+[Wed May 13 2026 16:24:48] Computing collapse times
+[Wed May 13 2026 16:24:49] Done computing collapse times, cpu time = 13.013579 s
+[Wed May 13 2026 16:24:49] Completed, R= 1.548, expected sigma:  1.5802, computed sigma:  1.5719, cpu time = 2.057363 s
+
+[Wed May 13 2026 16:24:49] Starting smoothing radius 7 of 9 (R=  0.68908, sigma=  2.23206)
+[Wed May 13 2026 16:24:49] Computing second derivatives
+[Wed May 13 2026 16:24:49] Computing 2nd derivative: 1
+[Wed May 13 2026 16:24:49] compute_derivative: starting fft
+[Wed May 13 2026 16:24:49] compute_derivative: done fft, cpu time = 0.163450
+[Wed May 13 2026 16:24:49] Computing 2nd derivative: 4
+[Wed May 13 2026 16:24:49] compute_derivative: starting fft
+[Wed May 13 2026 16:24:49] compute_derivative: done fft, cpu time = 0.161989
+[Wed May 13 2026 16:24:49] Computing 2nd derivative: 5
+[Wed May 13 2026 16:24:49] compute_derivative: starting fft
+[Wed May 13 2026 16:24:49] compute_derivative: done fft, cpu time = 0.161475
+[Wed May 13 2026 16:24:49] Computing 2nd derivative: 2
+[Wed May 13 2026 16:24:49] compute_derivative: starting fft
+[Wed May 13 2026 16:24:49] compute_derivative: done fft, cpu time = 0.162021
+[Wed May 13 2026 16:24:49] Computing 2nd derivative: 6
+[Wed May 13 2026 16:24:49] compute_derivative: starting fft
+[Wed May 13 2026 16:24:50] compute_derivative: done fft, cpu time = 0.162601
+[Wed May 13 2026 16:24:50] Computing 2nd derivative: 3
+[Wed May 13 2026 16:24:50] compute_derivative: starting fft
+[Wed May 13 2026 16:24:50] compute_derivative: done fft, cpu time = 0.162481
+[Wed May 13 2026 16:24:50] Done second derivatives, cpu time = 1.205391 s
+[Wed May 13 2026 16:24:50] Computing collapse times
+[Wed May 13 2026 16:24:51] Done computing collapse times, cpu time = 15.070803 s
+[Wed May 13 2026 16:24:51] Completed, R= 0.689, expected sigma:  2.2321, computed sigma:  2.2044, cpu time = 2.103847 s
+
+[Wed May 13 2026 16:24:51] Starting smoothing radius 8 of 9 (R=  0.25873, sigma=  3.15287)
+[Wed May 13 2026 16:24:51] Computing second derivatives
+[Wed May 13 2026 16:24:51] Computing 2nd derivative: 1
+[Wed May 13 2026 16:24:51] compute_derivative: starting fft
+[Wed May 13 2026 16:24:51] compute_derivative: done fft, cpu time = 0.163917
+[Wed May 13 2026 16:24:51] Computing 2nd derivative: 4
+[Wed May 13 2026 16:24:51] compute_derivative: starting fft
+[Wed May 13 2026 16:24:51] compute_derivative: done fft, cpu time = 0.160641
+[Wed May 13 2026 16:24:51] Computing 2nd derivative: 5
+[Wed May 13 2026 16:24:51] compute_derivative: starting fft
+[Wed May 13 2026 16:24:51] compute_derivative: done fft, cpu time = 0.161563
+[Wed May 13 2026 16:24:51] Computing 2nd derivative: 2
+[Wed May 13 2026 16:24:51] compute_derivative: starting fft
+[Wed May 13 2026 16:24:51] compute_derivative: done fft, cpu time = 0.161954
+[Wed May 13 2026 16:24:51] Computing 2nd derivative: 6
+[Wed May 13 2026 16:24:51] compute_derivative: starting fft
+[Wed May 13 2026 16:24:52] compute_derivative: done fft, cpu time = 0.162572
+[Wed May 13 2026 16:24:52] Computing 2nd derivative: 3
+[Wed May 13 2026 16:24:52] compute_derivative: starting fft
+[Wed May 13 2026 16:24:52] compute_derivative: done fft, cpu time = 0.161369
+[Wed May 13 2026 16:24:52] Done second derivatives, cpu time = 1.203063 s
+[Wed May 13 2026 16:24:52] Computing collapse times
+[Wed May 13 2026 16:24:53] Done computing collapse times, cpu time = 17.172335 s
+[Wed May 13 2026 16:24:53] Completed, R= 0.259, expected sigma:  3.1529, computed sigma:  2.6686, cpu time = 2.125308 s
+
+[Wed May 13 2026 16:24:53] Starting smoothing radius 9 of 9 (R=  0.00000, sigma=  3.23689)
+[Wed May 13 2026 16:24:53] Computing second derivatives
+[Wed May 13 2026 16:24:53] Computing 2nd derivative: 1
+[Wed May 13 2026 16:24:53] compute_derivative: starting fft
+[Wed May 13 2026 16:24:53] compute_derivative: done fft, cpu time = 0.163750
+[Wed May 13 2026 16:24:53] Computing 2nd derivative: 4
+[Wed May 13 2026 16:24:53] compute_derivative: starting fft
+[Wed May 13 2026 16:24:53] compute_derivative: done fft, cpu time = 0.162789
+[Wed May 13 2026 16:24:53] Computing 2nd derivative: 5
+[Wed May 13 2026 16:24:53] compute_derivative: starting fft
+[Wed May 13 2026 16:24:53] compute_derivative: done fft, cpu time = 0.162205
+[Wed May 13 2026 16:24:53] Computing 2nd derivative: 2
+[Wed May 13 2026 16:24:53] compute_derivative: starting fft
+[Wed May 13 2026 16:24:54] compute_derivative: done fft, cpu time = 0.162667
+[Wed May 13 2026 16:24:54] Computing 2nd derivative: 6
+[Wed May 13 2026 16:24:54] compute_derivative: starting fft
+[Wed May 13 2026 16:24:54] compute_derivative: done fft, cpu time = 0.161694
+[Wed May 13 2026 16:24:54] Computing 2nd derivative: 3
+[Wed May 13 2026 16:24:54] compute_derivative: starting fft
+[Wed May 13 2026 16:24:54] compute_derivative: done fft, cpu time = 0.162251
+[Wed May 13 2026 16:24:54] Done second derivatives, cpu time = 1.102363 s
+[Wed May 13 2026 16:24:54] Computing collapse times
+[Wed May 13 2026 16:24:55] Done computing collapse times, cpu time = 19.196952 s
+[Wed May 13 2026 16:24:55] Completed, R= 0.000, expected sigma:  3.2369, computed sigma:  2.7851, cpu time = 2.031037 s
+
+[Wed May 13 2026 16:24:55] Computing displacements  for redshift 0.000000
+
+[Wed May 13 2026 16:24:55] Computing LPT displacements
+[Wed May 13 2026 16:24:55] source for 2LPT: starting fft
+[Wed May 13 2026 16:24:55] source for 2LPT: done fft, cputime = 0.163947
+[Wed May 13 2026 16:24:55] Computing 2nd derivative of 2LPT source: 1
+[Wed May 13 2026 16:24:55] compute_derivative: starting fft
+[Wed May 13 2026 16:24:55] compute_derivative: done fft, cpu time = 0.161806
+[Wed May 13 2026 16:24:55] Computing 2nd derivative of 2LPT source: 1
+[Wed May 13 2026 16:24:55] compute_derivative: starting fft
+[Wed May 13 2026 16:24:55] compute_derivative: done fft, cpu time = 0.161601
+[Wed May 13 2026 16:24:55] Computing 2nd derivative of 2LPT source: 1
+[Wed May 13 2026 16:24:55] compute_derivative: starting fft
+[Wed May 13 2026 16:24:56] compute_derivative: done fft, cpu time = 0.160844
+[Wed May 13 2026 16:24:56] Computing 2nd derivative of 2LPT source: 2
+[Wed May 13 2026 16:24:56] compute_derivative: starting fft
+[Wed May 13 2026 16:24:56] compute_derivative: done fft, cpu time = 0.162341
+[Wed May 13 2026 16:24:56] Computing 2nd derivative of 2LPT source: 2
+[Wed May 13 2026 16:24:56] compute_derivative: starting fft
+[Wed May 13 2026 16:24:56] compute_derivative: done fft, cpu time = 0.161988
+[Wed May 13 2026 16:24:56] Computing 2nd derivative of 2LPT source: 3
+[Wed May 13 2026 16:24:56] compute_derivative: starting fft
+[Wed May 13 2026 16:24:56] compute_derivative: done fft, cpu time = 0.163452
+[Wed May 13 2026 16:24:56] source for 3LPT: starting fft
+[Wed May 13 2026 16:24:56] sources for 3LPT: done fft, cputime = 0.164424
+[Wed May 13 2026 16:24:56] source for 3LPT: starting fft
+[Wed May 13 2026 16:24:56] source for 3LPT: done fft, cputime = 0.162628
+[Wed May 13 2026 16:24:56] Computing displacements
+[Wed May 13 2026 16:24:56] Computing 1st derivative: 1
+[Wed May 13 2026 16:24:57] compute_derivative: starting fft
+[Wed May 13 2026 16:24:57] compute_derivative: done fft, cpu time = 0.163297
+[Wed May 13 2026 16:24:57] Computing 1st derivative: 2
+[Wed May 13 2026 16:24:57] compute_derivative: starting fft
+[Wed May 13 2026 16:24:57] compute_derivative: done fft, cpu time = 0.161115
+[Wed May 13 2026 16:24:57] Computing 1st derivative: 3
+[Wed May 13 2026 16:24:57] compute_derivative: starting fft
+[Wed May 13 2026 16:24:57] compute_derivative: done fft, cpu time = 0.164528
+[Wed May 13 2026 16:24:57] Computing 3LPT_1 displacements
+[Wed May 13 2026 16:24:57] Computing 1st derivative: 1
+[Wed May 13 2026 16:24:57] compute_derivative: starting fft
+[Wed May 13 2026 16:24:58] compute_derivative: done fft, cpu time = 0.161372
+[Wed May 13 2026 16:24:58] Computing 1st derivative: 2
+[Wed May 13 2026 16:24:58] compute_derivative: starting fft
+[Wed May 13 2026 16:24:58] compute_derivative: done fft, cpu time = 0.161855
+[Wed May 13 2026 16:24:58] Computing 1st derivative: 3
+[Wed May 13 2026 16:24:58] compute_derivative: starting fft
+[Wed May 13 2026 16:24:58] compute_derivative: done fft, cpu time = 0.163034
+[Wed May 13 2026 16:24:58] Computing 3LPT_2 displacements
+[Wed May 13 2026 16:24:58] Computing 1st derivative: 1
+[Wed May 13 2026 16:24:58] compute_derivative: starting fft
+[Wed May 13 2026 16:24:59] compute_derivative: done fft, cpu time = 0.163783
+[Wed May 13 2026 16:24:59] Computing 1st derivative: 2
+[Wed May 13 2026 16:24:59] compute_derivative: starting fft
+[Wed May 13 2026 16:24:59] compute_derivative: done fft, cpu time = 0.162697
+[Wed May 13 2026 16:24:59] Computing 1st derivative: 3
+[Wed May 13 2026 16:24:59] compute_derivative: starting fft
+[Wed May 13 2026 16:24:59] compute_derivative: done fft, cpu time = 0.162467
+[Wed May 13 2026 16:24:59] Done LPT displacements, cpu time = 4.348756 s
+[Wed May 13 2026 16:24:59] Computing first derivatives
+[Wed May 13 2026 16:24:59] Computing 1st derivative: 1
+[Wed May 13 2026 16:24:59] compute_derivative: starting fft
+[Wed May 13 2026 16:24:59] compute_derivative: done fft, cpu time = 0.163392
+[Wed May 13 2026 16:24:59] Computing 1st derivative: 2
+[Wed May 13 2026 16:25:00] compute_derivative: starting fft
+[Wed May 13 2026 16:25:00] compute_derivative: done fft, cpu time = 0.163005
+[Wed May 13 2026 16:25:00] Computing 1st derivative: 3
+[Wed May 13 2026 16:25:00] compute_derivative: starting fft
+[Wed May 13 2026 16:25:00] compute_derivative: done fft, cpu time = 0.163256
+[Wed May 13 2026 16:25:00] Done first derivatives, cpu time = 0.891968 s
+[Wed May 13 2026 16:25:00] Done computing displacements, cpu time = 5.240788 s
+[Wed May 13 2026 16:25:00] Number of collapsed particles to z=0: 9893201
+[Wed May 13 2026 16:25:00] Finishing fmax, total fmax cpu time =      23.539249
+		 IO       :       0.000000 (     23.539249 total time without I/O)
+		 FFT      :      12.135080
+		 COLLAPSE :       7.412133
+
+[Wed May 13 2026 16:25:00] Second part: fragmentation of the collapsed medium
+[Wed May 13 2026 16:25:00] Task 0 reallocated memory for 1.304198 Gb
+[Wed May 13 2026 16:25:00] Creating map of needed particles
+[Wed May 13 2026 16:25:00] Starting first re-distribution of products
+  distribute_alltoall phase timings (task 0):
+    keep_data:          0.194 s
+    plan+gather:        0.000 s
+    bitmap build:       0.101 s
+    bitmap xchg:        0.001 s
+    Fmax filter:        0.091 s
+    alltoall cnt:       0.001 s
+    hypercube:          0.036 s
+  distribute_alltoall min/max across 4 tasks:
+    keep_data       min=     0.193  max=     0.194  (spread=1.0x)
+    plan+gather     min=     0.000  max=     0.001  (spread=0.0x)
+    bitmap build    min=     0.101  max=     0.101  (spread=1.0x)
+    bitmap xchg     min=     0.001  max=     0.001  (spread=1.3x)
+    Fmax filter     min=     0.090  max=     0.092  (spread=1.0x)
+    alltoall cnt    min=     0.000  max=     0.002  (spread=0.0x)
+    hypercube       min=     0.036  max=     0.037  (spread=1.0x)
+[Wed May 13 2026 16:25:01] Re-distribution of products done, cputime =       0.425587
+[Wed May 13 2026 16:25:01] First re-distribution of Fmax done, 10206111 particles stored by all tasks, average overhead: 0.608332, cputime =       0.425587
+[Wed May 13 2026 16:25:01] Smallest and largest overhead: 0.606011, 0.611552
+[Wed May 13 2026 16:25:01] Starting sorting
+[Wed May 13 2026 16:25:02] Sorting done, total cputime =       1.677918
+[Wed May 13 2026 16:25:05] Task 0 found 240151 peaks, 230420 in the well resolved region. Total number of peaks: 919355
+[Wed May 13 2026 16:25:05] Starting the quick fragmentation process
+[Wed May 13 2026 16:25:05] ***   0% done, F =  11.70,  z =  10.70
+[Wed May 13 2026 16:25:07] ***  20% done, F =   3.79,  z =   2.79
+[Wed May 13 2026 16:25:09] ***  40% done, F =   2.83,  z =   1.83
+[Wed May 13 2026 16:25:11] ***  60% done, F =   2.13,  z =   1.13
+[Wed May 13 2026 16:25:14] ***  80% done, F =   1.52,  z =   0.52
+[Wed May 13 2026 16:25:16] *** 100% done, F =   1.00,  z =   0.00
+[Wed May 13 2026 16:25:16] Quick fragmentation done, cputime =      11.215532
+[Wed May 13 2026 16:25:16] Updating map of needed particles
+[Wed May 13 2026 16:25:16] Requesting 12385509 particles from the boundary layer
+[Wed May 13 2026 16:25:16] Starting second re-distribution of products
+  distribute_alltoall phase timings (task 0):
+    keep_data:          0.123 s
+    plan+gather:        0.000 s
+    bitmap build:       0.102 s
+    bitmap xchg:        0.001 s
+    Fmax filter:        0.092 s
+    alltoall cnt:       0.000 s
+    hypercube:          0.083 s
+  distribute_alltoall min/max across 4 tasks:
+    keep_data       min=     0.123  max=     0.124  (spread=1.0x)
+    plan+gather     min=     0.000  max=     0.001  (spread=0.0x)
+    bitmap build    min=     0.102  max=     0.102  (spread=1.0x)
+    bitmap xchg     min=     0.001  max=     0.001  (spread=0.0x)
+    Fmax filter     min=     0.091  max=     0.092  (spread=1.0x)
+    alltoall cnt    min=     0.000  max=     0.001  (spread=0.0x)
+    hypercube       min=     0.083  max=     0.088  (spread=1.1x)
+[Wed May 13 2026 16:25:17] Re-distribution of products done, cputime =       0.406086
+[Wed May 13 2026 16:25:17] Second re-distribution of Fmax done, 12926768 particles stored by all tasks, average overhead: 0.770495, cputime =       0.406086
+[Wed May 13 2026 16:25:17] Smallest and largest overhead: 0.755252, 0.782235
+[Wed May 13 2026 16:25:17] Starting sorting
+[Wed May 13 2026 16:25:18] Sorting done, total cputime =       1.522506
+[Wed May 13 2026 16:25:22] Task 0 found 302123 peaks, 230420 in the well resolved region. Total number of peaks: 919355
+[Wed May 13 2026 16:25:22] Starting the fragmentation process to redshift  0.0000
+[Wed May 13 2026 16:25:22] ***   0% done, F =  12.94,  z =  11.94
+[Wed May 13 2026 16:25:22] ***   5% done, F =   5.26,  z =   4.26
+[Wed May 13 2026 16:25:23] ***  10% done, F =   4.59,  z =   3.59
+[Wed May 13 2026 16:25:23] ***  15% done, F =   4.15,  z =   3.15
+[Wed May 13 2026 16:25:24] ***  20% done, F =   3.81,  z =   2.81
+[Wed May 13 2026 16:25:25] ***  25% done, F =   3.52,  z =   2.52
+[Wed May 13 2026 16:25:25] ***  30% done, F =   3.27,  z =   2.27
+[Wed May 13 2026 16:25:26] ***  35% done, F =   3.05,  z =   2.05
+[Wed May 13 2026 16:25:27] ***  40% done, F =   2.84,  z =   1.84
+[Wed May 13 2026 16:25:28] ***  45% done, F =   2.65,  z =   1.65
+[Wed May 13 2026 16:25:28] ***  50% done, F =   2.47,  z =   1.47
+[Wed May 13 2026 16:25:29] ***  55% done, F =   2.30,  z =   1.30
+[Wed May 13 2026 16:25:30] ***  60% done, F =   2.13,  z =   1.13
+[Wed May 13 2026 16:25:31] ***  65% done, F =   1.97,  z =   0.97
+[Wed May 13 2026 16:25:32] ***  70% done, F =   1.82,  z =   0.82
+[Wed May 13 2026 16:25:32] ***  75% done, F =   1.67,  z =   0.67
+[Wed May 13 2026 16:25:33] ***  80% done, F =   1.53,  z =   0.53
+[Wed May 13 2026 16:25:34] ***  85% done, F =   1.39,  z =   0.39
+[Wed May 13 2026 16:25:34] Starting PLC reconstruction, Task 0 will store at most 559240 halos
+[Wed May 13 2026 16:25:35] ***  90% done, F =   1.26,  z =   0.26
+[Wed May 13 2026 16:25:38] Syncing tasks for PLC...  Nmax=559240, Nstored=99701, Nstored_last=0, Fmax=1.170000
+[Wed May 13 2026 16:25:38] 0 tasks require to store PLC halos at F= 1.170...
+[Wed May 13 2026 16:25:39] ***  95% done, F =   1.13,  z =   0.13
+[Wed May 13 2026 16:25:40] Syncing tasks for PLC...  Nmax=559240, Nstored=155603, Nstored_last=99701, Fmax=1.052997
+[Wed May 13 2026 16:25:40] 0 tasks require to store PLC halos at F= 1.053...
+[Wed May 13 2026 16:25:41] *** 100% done, F =   1.00,  z =   0.00
+[Wed May 13 2026 16:25:41] Opening file pinocchio.CPU_run_final.plc.out
+[Wed May 13 2026 16:25:43] Task 0 has written 648987 halos on file pinocchio.CPU_run_final.plc.out
+[Wed May 13 2026 16:25:43] PLC: Last check on groups done, Task 0 stored 9721 halos (max:559240)
+[Wed May 13 2026 16:25:43] Updating file pinocchio.CPU_run_final.plc.out
+[Wed May 13 2026 16:25:43] Task 0 has written 44233 halos on file pinocchio.CPU_run_final.plc.out
+[Wed May 13 2026 16:25:43] total number of halos in the PLC: 693220
+[Wed May 13 2026 16:25:43] Opening file pinocchio.CPU_run_final.nz.out
+[Wed May 13 2026 16:25:43] Writing output at z=0.000000
+[Wed May 13 2026 16:25:43] Opening file pinocchio.0.0000.CPU_run_final.catalog.out
+[Wed May 13 2026 16:25:44] Task 0 has written 68100 halos on file pinocchio.0.0000.CPU_run_final.catalog.out
+[Wed May 13 2026 16:25:44] Writing mass function into file  pinocchio.0.0000.CPU_run_final.mf.out
+[Wed May 13 2026 16:25:44] Opening file pinocchio.CPU_run_final.histories.out
+[Wed May 13 2026 16:25:44] Task 0 has written 68100 trees and 117529 branches on file pinocchio.CPU_run_final.histories.out
+Total number of peaks:                 919355
+Total number of good halos:            601175
+Particles with N neighbouring groups:  4895751 1949338 255977 12108 226 3
+Total number of accretion events:      4981294
+Accretion before evaluating merger:    1409538
+Accretion after evaluating merger:     5554
+Accretion of filament particles:       1247931
+
+Global stats at the final redshift:
+Total number of merger events:         318200
+Total number of major merger events:   116866
+Final number of filament particles:    3992552
+Final number of particles in halos:    5900649
+Total number of collapsed particles:   9893201
+Total number of uncollapsed particles: 6884015
+
+[Wed May 13 2026 16:25:44] Fragmentation done to redshift 0.0000, cputime =      22.292520
+[Wed May 13 2026 16:25:44] Finishing fragment, total cputime =      43.538647
+
+[Wed May 13 2026 16:25:44] The PredPeakFactor parameter could have been  1.74 in place of  0.80
+Total               :      69.127157
+Initialization      :       1.866675 ( 2.70%)
+  Density in PS     :       1.621336 ( 2.35%)
+fmax                :      23.539249 (34.05%)
+  LPT               :       4.348756 ( 6.29%)
+  Derivatives       :      11.585825 (16.76%)
+    Mem transfer    :       0.986063 ( 1.43%)
+    FFTs            :      12.135080 (17.55%)
+  Collapse times    :       7.412133 (10.72%)
+  Velocities        :       0.000000 ( 0.00%)
+Fragmentation       :      43.538647 (62.98%)
+  Redistribution    :       0.831674 ( 1.20%)
+  Sorting           :       3.200424 ( 4.63%)
+  Groups total      :      33.508052 (48.47%)
+  Groups PLC        :       8.859107 (12.82%)
+Total I/O           :       0.301785 ( 0.44%)
+
+	#########################################
+
+	#########################################
+
+	#########################################
+
+	#########################################
+
+	#########################################
+
+	#########################################
+
+	#########################################
+
+Pinocchio done!
+	#########################################

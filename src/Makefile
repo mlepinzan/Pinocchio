@@ -37,7 +37,7 @@ SYSTYPE ?= LeonardoBoost
 #####################################################################
 # The following variables should be passed from command line to make
 # Executable name
-EXEC         ?= hinocchio.x
+EXEC         ?= PinocchioFinal_GPU.x
 # Compilation options
 
 # C compiler
@@ -238,7 +238,7 @@ endif # OMP, YES
 ########################### SYSTYPE CONFIGURATION ###################################
 
 ###################### LEONARDO ######################
-ifeq ($(SYSTYPE), "LeonardoBoost")
+ifeq ($(SYSTYPE), LeonardoBoost)
 
 CDEBUG      = -g -O0 -Minfo=all -v -Mneginfo $(GPU_FLAG) $(OMP_FLAG)
 COPTIMIZED  = -O3 -fast -Minfo=all -v -Mneginfo $(OMP_FLAG)
@@ -277,7 +277,7 @@ CFITSIO_LIBR = -L$(CFITSIO_ROOT)/lib -lcfitsio
 
 endif
 
-ifeq ($(SYSTYPE), "LeonardoDCGP")
+ifeq ($(SYSTYPE), LeonardoDCGP)
 
 CC          =  mpicc
 CDEBUG      = -ggdb3 -Wall $(OMP_FLAG)

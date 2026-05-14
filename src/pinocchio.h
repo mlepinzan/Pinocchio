@@ -42,6 +42,7 @@
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_odeiv2.h>
 #include <gsl/gsl_spline.h>
+#include <gsl/gsl_spline2d.h>
 //#include <pfft.h> //Decide whether to keep it or to get rid of it
 #include <assert.h>
 #include <sys/types.h>
