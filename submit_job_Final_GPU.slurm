@@ -96,7 +96,7 @@ for BOX_SIZE in "${BOX_SIZES[@]}"; do
         echo "Preparing execution for BoxSize=${BOX_SIZE}, GridSize=${N_PARTICLES}"  # Debugging info
 
         # Create unique directory name with execution type, grid, box, MPI, and OMP settings
-        OUTPUT_DIR="${BASE_DIR}/Test_SBI_NewCLusterMock/${RUN_TYPE}_grid_${N_PARTICLES}_box_${BOX_SIZE}_MPI_${SLURM_NTASKS}_OMP_${SLURM_CPUS_PER_TASK}_test_1"
+        OUTPUT_DIR="${BASE_DIR}/Test_SBI_NewCLusterMock/${RUN_TYPE}_grid_${N_PARTICLES}_box_${BOX_SIZE}_MPI_${SLURM_NTASKS}_OMP_${SLURM_CPUS_PER_TASK}_test_0"
         mkdir -p $OUTPUT_DIR  # Create directory for this configuration
         if [[ ! -d "$OUTPUT_DIR" ]]; then
             echo "Error: Failed to create output directory $OUTPUT_DIR"
