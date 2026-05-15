@@ -135,7 +135,7 @@ int set_one_grid(int ThisGrid)
   cvector_size = GRID.GSlocal_k[_x_] * GRID.GSlocal_k[_y_] * GRID.GSlocal_k[_z_];
 
   GRID.total_local_size_fft = 2 * cvector_size;
-  printf("Rank %d: total local size fft %ld; total local size fft / 2 %ld, size complex %ld\n",
+  // printf("Rank %d: total local size fft %ld; total local size fft / 2 %ld, size complex %ld\n",
 	 ThisTask,
 	 GRID.total_local_size_fft,
 	 GRID.total_local_size_fft/2,
@@ -171,10 +171,10 @@ int compute_fft_plans()
       /* Check that the plan is created correctly */
       int heffte_err;
       
-      printf("Task %d: Inbox low: %d, %d, %d\n, Inbox high: %d, %d, %d\n",
-	     ThisTask,
-	     inbox_low[0], inbox_low[1], inbox_low[2],
-	     inbox_high[0], inbox_high[1], inbox_high[2]);
+      // printf("Task %d: Inbox low: %d, %d, %d\n, Inbox high: %d, %d, %d\n",
+	    //  ThisTask,
+	    //  inbox_low[0], inbox_low[1], inbox_low[2],
+	    //  inbox_high[0], inbox_high[1], inbox_high[2]);
       
       heffte_err = heffte_plan_create_r2c(BACKEND, inbox_low, inbox_high, order,
 					  outbox_low, outbox_high, order,
@@ -193,8 +193,8 @@ int compute_fft_plans()
       int inbox_size  = heffte_size_inbox(GRID.plan);
       int outbox_size = heffte_size_outbox(GRID.plan);
     
-      printf("Task %d: inbox size %d; outbox size %d\n",
-	     ThisTask, inbox_size, outbox_size);
+      // printf("Task %d: inbox size %d; outbox size %d\n",
+	    //  ThisTask, inbox_size, outbox_size);
     }
 
   /* NO REVERSE PLAN IS NEEDED FOR HEFFTE */

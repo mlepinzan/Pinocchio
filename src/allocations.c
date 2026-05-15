@@ -646,8 +646,6 @@ int allocate_main_memory()
   {
     printf("ERROR: Memory for 'products' is not present on the device!\n");
     return -1;
-  } else {
-    printf("\n\t GPU %d products memory successfully allocated and present on the device.\n", devID);
   }
 
 #endif // end defined(FULL_GPU_OMP) 
