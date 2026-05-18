@@ -1,0 +1,3 @@
+src/*.out
+TEST_vs_CPU_version/*.out
+Test_SBI_NewCLusterMock
