@@ -273,7 +273,8 @@ int main(int argc, char **argv, char **envp)
 // #ifdef GPU_OMP
   PMT_GPU_STOP("total", devID, ThisTask);
 #endif // GPU_OMP
-  
+
+#if defined(ENERGY_CPU) || defined(ENERGY_GPU)  
   /* PMT report */
   for (int Task=0 ; Task<NTasks ; Task++)
     {
@@ -292,6 +293,7 @@ int main(int argc, char **argv, char **envp)
 	}      
       MPI_Barrier(MPI_COMM_WORLD);
     }
+#endif
   
   /* done */
   if (!ThisTask)
