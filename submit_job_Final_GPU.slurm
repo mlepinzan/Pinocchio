@@ -3,8 +3,8 @@
 #SBATCH --job-name=Test_NewClusterMock_GPU_version
 #SBATCH --partition=boost_usr_prod
 #SBATCH --account=INA24_C7B09   
-#SBATCH --nodes=16
-#SBATCH --ntasks=256             # Total MPI tasks 
+#SBATCH --nodes=49
+#SBATCH --ntasks=784             # Total MPI tasks 
 #SBATCH --ntasks-per-node=16     # Explicitly specify MPI tasks per node
 #SBATCH --cpus-per-task=2        # Number of OpenMP threads per MPI task
 #SBATCH --gres=gpu:4             # Request 4 GPUs per node
