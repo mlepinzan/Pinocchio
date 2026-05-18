@@ -3,3 +3,4 @@ src/*.o
 src/*.x
 TEST_vs_CPU_version/*.out
 Test_SBI_NewCLusterMock
+*.out
