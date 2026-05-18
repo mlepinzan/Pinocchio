@@ -620,7 +620,9 @@ int allocate_main_memory()
     return 2;
   } else {
     if (ThisTask == 0) {
+        printf("\n\t ############################################ \n");
         printf("\n\t GPU is working \n", devID);
+        printf("\n\t ############################################ \n");
         fflush(stdout);
     }
   }
