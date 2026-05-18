@@ -136,10 +136,10 @@ int set_one_grid(int ThisGrid)
 
   GRID.total_local_size_fft = 2 * cvector_size;
   // printf("Rank %d: total local size fft %ld; total local size fft / 2 %ld, size complex %ld\n",
-	 ThisTask,
-	 GRID.total_local_size_fft,
-	 GRID.total_local_size_fft/2,
-	 GRID.GSlocal_k[_x_] * GRID.GSlocal_k[_y_] * GRID.GSlocal_k[_z_]);
+	//  ThisTask,
+	//  GRID.total_local_size_fft,
+	//  GRID.total_local_size_fft/2,
+	//  GRID.GSlocal_k[_x_] * GRID.GSlocal_k[_y_] * GRID.GSlocal_k[_z_]);
   
   dprintf(VDBG, ThisTask, "[set grid %02d] task %d %ld "
 	  "i: %ld %ld %ld - i start: %ld %ld %ld - "
