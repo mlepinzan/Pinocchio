@@ -4,3 +4,5 @@ src/*.x
 TEST_vs_CPU_version/*.out
 Test_SBI_NewCLusterMock
 *.out
+Test_SBI_NewCLusterMock_clean_log
+Test_ELM_Final_GPU

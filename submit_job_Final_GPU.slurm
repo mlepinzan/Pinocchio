@@ -1,20 +1,20 @@
 #!/bin/bash
 
-#SBATCH --job-name=Test_NewClusterMock_GPU_version
+#SBATCH --job-name=Test_ELM_Final_GPU
 #SBATCH --partition=boost_usr_prod
 #SBATCH --account=INA24_C7B09   
-#SBATCH --nodes=49
-#SBATCH --ntasks=784             # Total MPI tasks 
+#SBATCH --nodes=160
+#SBATCH --ntasks=2560             # Total MPI tasks 
 #SBATCH --ntasks-per-node=16     # Explicitly specify MPI tasks per node
 #SBATCH --cpus-per-task=2        # Number of OpenMP threads per MPI task
 #SBATCH --gres=gpu:4             # Request 4 GPUs per node
 #SBATCH --gpu-bind=closest       # Bind MPI tasks to the closest GPUs
 ##SBATCH --gpu-bind=map_gpu:0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3
 ##SBATCH --gpu-bind=map_gpu:0,0,1,1,2,2,3,3
-##SBATCH --qos=boost_qos_bprod
+#SBATCH --qos=boost_qos_bprod
 #SBATCH --exclusive
-#SBATCH --output=PLarge-%j.out
-#SBATCH --error=PLarge-%j.err
+#SBATCH --output=ELM-%j.out
+#SBATCH --error=ELM-%j.err
 #SBATCH --time=5:00:00
 
 ml gcc/12.2 binutils nvhpc/24.3 openmpi/4.1.6--nvhpc--24.3 cuda/12.3
@@ -59,10 +59,10 @@ BASE_DIR="/leonardo_work/CNHPC_1498509/PINOCCHIO_final_GPU"
 COMPILE_DIR="${BASE_DIR}/src" # GPU
 
 # === Define Box Sizes & Grid Sizes === #
-BOX_SIZES=(3870)
-N_PARTICLES=(2160)
-MAX_MEM=(31000)
-MAX_MEM_PER_PARTICLE=(350)
+BOX_SIZES=(3380)
+N_PARTICLES=(6144)
+MAX_MEM=(42000)
+MAX_MEM_PER_PARTICLE=(300)
 
 
 # === Determine Execution Mode (CPU or GPU) === #
@@ -96,7 +96,7 @@ for BOX_SIZE in "${BOX_SIZES[@]}"; do
         echo "Preparing execution for BoxSize=${BOX_SIZE}, GridSize=${N_PARTICLES}"  # Debugging info
 
         # Create unique directory name with execution type, grid, box, MPI, and OMP settings
-        OUTPUT_DIR="${BASE_DIR}/Test_SBI_NewCLusterMock/${RUN_TYPE}_grid_${N_PARTICLES}_box_${BOX_SIZE}_MPI_${SLURM_NTASKS}_OMP_${SLURM_CPUS_PER_TASK}_test_0"
+        OUTPUT_DIR="${BASE_DIR}/Test_ELM_Final_GPU/${RUN_TYPE}_grid_${N_PARTICLES}_box_${BOX_SIZE}_MPI_${SLURM_NTASKS}_OMP_${SLURM_CPUS_PER_TASK}"
         mkdir -p $OUTPUT_DIR  # Create directory for this configuration
         if [[ ! -d "$OUTPUT_DIR" ]]; then
             echo "Error: Failed to create output directory $OUTPUT_DIR"
